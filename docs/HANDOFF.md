@@ -79,3 +79,11 @@ Repositório oficial público: https://github.com/davidkalil10/n-launcher. URL c
 O bloqueio "A base package is required in this version" vinha de Archive::program antes do runtime. O NUP original e o splitado do Orbitals têm TOC íntegra e um único pacote kind=1. O runtime upstream aceita esse caso. Archive::application_title agora prefere a base quando existe e aceita kind=1 da mesma família quando não existe kind=0; DLC isolado ou múltiplas famílias sem base são rejeitados. A seleção é compartilhada por programa e RomFS. Isto não prova que uma atualização arbitrária tenha todos os arquivos.
 
 22 testes de programa, 12 de leitor, 8 de cache, backend nativo e 38 verificações de app passaram localmente. Preparação dos três módulos do Orbitals splitado no PC aprovada; não houve mapeamento, execução de código do jogo, preparação de gigabytes ou gravação em saves. Validar no console após atualizar para 0.0.8 pelo R da 0.0.6/0.0.7.
+
+## Transporte TLS 0.0.9
+
+O teste do updater no console falhou com a mensagem genérica de conexão segura antes de baixar. Foi encontrada chamada indevida da API IPC sslConnectionSetSocketDescriptor com fd POSIX. A correção usa o wrapper socketSslConnectionSetSocketDescriptor, que converte para BSD. DoNotCloseSocket causa retorno -1/ENOENT documentado como sucesso; tratar esse caso explicitamente. O fd duplicado, quando existir, é fechado antes do SSL; o original é fechado pelo dono após SSL.
+
+include/nx2link/tls_socket.hpp contém o adaptador e o erro com etapa/host/Result/errno. tests/tls_mock e test_tls_socket.cpp cobrem contrato ENOENT, retorno de handle e falhas. Fonte de referência: SDK libounce fixado, nx/source/runtime/devices/socket.c e headers ssl.h/socket.h. Não desabilitar validação de certificado/data nem cair para HTTP para contornar falhas. Origem exata do erro observado só será confirmada com nova tentativa no console; não afirmar TLS validado por teste mock.
+
+Instalar a 0.0.9 manualmente, preservando dados, e testar R para consultar a release atual. Após confirmar a consulta no console, publicar uma versão posterior para testar download e reabertura de ponta a ponta. O runtime de jogo não muda.

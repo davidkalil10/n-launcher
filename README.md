@@ -2,7 +2,7 @@
 
 Homebrew de Switch 2 para preparar e abrir backups NUP diretamente no console, sem compilar um port por jogo no PC. Aceita **NUP completo** e **pasta `.nup` com partes `00`, `01`, …** pelo mesmo seletor.
 
-**Pokopia splitado foi validado no console com imagem, áudio, controles, salvar e carregar funcionando.** A versão 0.0.8 mantém o alocador da interface que resolveu o fechamento observado na preparação e inclui perfis por jogo, atualização pelo console e a pasta `n-launcher`. Os recursos novos têm testes locais e de build; compatibilidade de outros jogos e validação do atualizador no hardware permanecem específicas de cada teste.
+**Pokopia splitado foi validado no console com imagem, áudio, controles, salvar e carregar funcionando.** A versão 0.0.9 mantém o alocador da interface que resolveu o fechamento observado na preparação e inclui perfis por jogo, atualização pelo console e a pasta `n-launcher`. Os recursos novos têm testes locais e de build; compatibilidade de outros jogos e validação do atualizador no hardware permanecem específicas de cada teste.
 
 ![Biblioteca do N Launcher](docs/images/library.png)
 
@@ -13,6 +13,8 @@ Homebrew de Switch 2 para preparar e abrir backups NUP diretamente no console, s
 Baixe o ZIP da [release mais recente](https://github.com/davidkalil10/n-launcher/releases/latest) e extraia no SD. O aplicativo fica em **`/switch/n-launcher/n-launcher.nro`**. Abra **N Launcher**, sem “Diagnostico”, pelo hbmenu com kaiHEN ativo. Trocar o NRO não exige reiniciar ou reativar kaiHEN.
 
 Os dados de `/switch/nx2-link/` são movidos para `n-launcher` por renomeação, sem copiar os gigabytes de cache. Se preferir, renomeie a pasta manualmente antes de extrair o ZIP. Configurações, cache e saves existentes são preservados; dados conflitantes nas duas pastas não são sobrescritos. Depois da migração, utilize a nova versão do aplicativo.
+
+Versões até 0.0.8 podem falhar na associação da conexão ao TLS; instale a 0.0.9 manualmente para corrigir o transporte e testar a consulta.
 
 Esta primeira instalação com atualizador é manual. Nas próximas versões, pressione **R — Atualizações**: o aplicativo consulta o GitHub, mostra a versão disponível e permite baixar e instalar. O NRO é conferido antes da troca; a cópia anterior permanece até a nova versão iniciar e confirmar a atualização. [Funcionamento e recuperação](docs/UPDATES.md).
 

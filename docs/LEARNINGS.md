@@ -48,3 +48,7 @@ A fonte baked original do menu não cobre corretamente todos os acentos em portu
 A troca do alocador do frontend resolveu o fechamento observado e permitiu jogar, ouvir, controlar, salvar e carregar Pokopia. A correlação delimita uma solução prática, sem provar falha geral do SDK. Reservar mais memória não substitui essa correção.
 
 Atualizar NRO não exige reativar kaiHEN. Renomear dados no mesmo SD evita recópia de gigabytes, mas referências internas e configurações também precisam acompanhar o nome. Testes locais de updater não comprovam TLS ou comportamento de energia no console.
+
+## 2026-11-26 — API de socket e TLS
+
+As chamadas POSIX e o serviço BSD usam espaços diferentes de descritores. Mesmo um socket TCP conectado não pode ser passado diretamente à API IPC SSL. O wrapper do SDK faz a tradução. Sua convenção -1/ENOENT sob DoNotCloseSocket precisa ser tratada como sucesso. Mensagem de rede/data genérica não permite localizar a falha: preservar etapa, host e Result. Conferir o contrato do SDK mesmo ao adaptar código de upstream.

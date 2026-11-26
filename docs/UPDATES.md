@@ -40,3 +40,9 @@ Os testes usam apenas dados sintéticos e transporte simulado. Incluem HTTP com 
 O repositório oficial passou a ser `davidkalil10/n-launcher` e está público. A 0.0.6 instalada usa o endereço anterior, `davidkalil10/nx2-link-enhanced`; o GitHub redireciona suas URLs de release para o novo nome. Mantenha o nome antigo sem reutilização em outro repositório para preservar esse acesso das versões já instaladas.
 
 Pressione R na 0.0.6, confirme a 0.0.7, aguarde instalar e pressione A para reabrir. Confira a versão no canto superior. O novo processo confere o arquivo e confirma a atualização antes de remover sua cópia anterior. Nenhum novo cache de jogo é exigido por esta versão.
+
+## Correção de transporte 0.0.9
+
+A 0.0.6 mostrou falha genérica de conexão segura no console. A implementação usava sslConnectionSetSocketDescriptor diretamente com um fd POSIX, contrariando a orientação do SDK. A 0.0.9 usa socketSslConnectionSetSocketDescriptor para traduzir o handle. Com DoNotCloseSocket, retorno -1/ENOENT é sucesso documentado e não uma falha. Outros erros mostram etapa/host/Result ou errno. CA, hostname e data continuam verificados.
+
+É necessário substituir o NRO manualmente para aplicar esta correção em uma versão cujo download falha. Depois, testar R na 0.0.9: a consulta deve reconhecer a versão atual. Não publicar uma versão vazia apenas para forçar troca antes de validar a consulta TLS no console. Confirmada a consulta, preparar uma versão posterior para testar download/troca/reabertura. Nada nesta correção requer reinstalar o kaiHEN ou refazer o cache.

@@ -2,6 +2,7 @@
 // Native TLS approach adapted from nx2-flow menu/source/main_switch.cpp (Olmectron).
 // Streaming body decoder and strict updater policy are in the portable MIT core.
 #include "nx2link/http.hpp"
+#include "nx2link/tls_socket.hpp"
 #include <switch.h>
 #include <arpa/inet.h>
 #include <netdb.h>
@@ -22,8 +23,8 @@ struct Network {
     ~Network(){if(ssl)sslExit();if(sockets)socketExit();if(nifm)nifmExit();}
 };
 struct Connection {
-    int socket{-1};SslContext context{};SslConnection connection{};bool has_context{},has_connection{};
-    ~Connection(){if(has_connection)sslConnectionClose(&connection);if(has_context)sslContextClose(&context);if(socket>=0)close(socket);}
+    int socket{-1},duplicate{-1};SslContext context{};SslConnection connection{};bool has_context{},has_connection{};
+    ~Connection(){if(duplicate>=0)close(duplicate);if(has_connection)sslConnectionClose(&connection);if(has_context)sslContextClose(&context);if(socket>=0)close(socket);}
     void open(const std::string& host){
         addrinfo hints{};hints.ai_family=AF_INET;hints.ai_socktype=SOCK_STREAM;addrinfo* entries=nullptr;
         if(getaddrinfo(host.c_str(),"443",&hints,&entries)||!entries)throw std::runtime_error("Não foi possível localizar o GitHub. Confira a conexão de rede.");
@@ -39,14 +40,13 @@ struct Connection {
         }
         freeaddrinfo(entries);if(socket<0)throw std::runtime_error("O GitHub não respondeu. Tente novamente mais tarde.");
         timeval timeout{15,0};setsockopt(socket,SOL_SOCKET,SO_RCVTIMEO,&timeout,sizeof timeout);setsockopt(socket,SOL_SOCKET,SO_SNDTIMEO,&timeout,sizeof timeout);
-        if(R_FAILED(sslCreateContext(&context,SslVersion_TlsV12)))throw std::runtime_error("Não foi possível iniciar o TLS");has_context=true;
-        if(R_FAILED(sslContextCreateConnection(&context,&connection)))throw std::runtime_error("Não foi possível criar a conexão segura");has_connection=true;
-        int taken=-1;
-        if(R_FAILED(sslConnectionSetOption(&connection,SslOptionType_DoNotCloseSocket,1))||
-           R_FAILED(sslConnectionSetVerifyOption(&connection,SslVerifyOption_PeerCa|SslVerifyOption_HostName|SslVerifyOption_DateCheck))||
-           R_FAILED(sslConnectionSetSocketDescriptor(&connection,socket,&taken))||
-           R_FAILED(sslConnectionSetHostName(&connection,host.c_str(),u32(host.size())))||
-           R_FAILED(sslConnectionDoHandshake(&connection,nullptr,nullptr,nullptr,0)))throw std::runtime_error("Falha na conexão segura. Confira a rede e a data/hora do console.");
+        require_tls(sslCreateContext(&context,SslVersion_TlsV12),"criar contexto",host);has_context=true;
+        require_tls(sslContextCreateConnection(&context,&connection),"criar sessão",host);has_connection=true;
+        require_tls(sslConnectionSetOption(&connection,SslOptionType_DoNotCloseSocket,1),"definir posse do socket",host);
+        require_tls(sslConnectionSetVerifyOption(&connection,SslVerifyOption_PeerCa|SslVerifyOption_HostName|SslVerifyOption_DateCheck),"configurar certificado",host);
+        duplicate=bind_tls_socket(connection,socket,host);
+        require_tls(sslConnectionSetHostName(&connection,host.c_str(),u32(host.size())),"definir servidor",host);
+        require_tls(sslConnectionDoHandshake(&connection,nullptr,nullptr,nullptr,0),"negociar TLS (confira rede e data/hora)",host);
     }
     void send(const std::string& message){size_t at=0;while(at<message.size()){u32 n=0;if(R_FAILED(sslConnectionWrite(&connection,message.data()+at,u32(message.size()-at),&n))||!n)throw std::runtime_error("Falha ao enviar a solicitação ao GitHub");at+=n;}}
     size_t read(uint8_t* bytes,size_t size){u32 n=0;if(R_FAILED(sslConnectionRead(&connection,bytes,u32(size),&n)))throw std::runtime_error("A conexão de download foi interrompida");return n;}

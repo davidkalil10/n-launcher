@@ -36,6 +36,8 @@ jobs:
           python3 tests/test_native_backend.py build/native-backend
           g++ -std=c++17 -O2 -Wall -Wextra -Werror -Iinclude src/input.cpp src/update.cpp src/http.cpp src/profile.cpp src/layout.cpp tests/test_app_core.cpp -o build/app-core-test
           build/app-core-test "$(mktemp -d)"
+          g++ -std=c++17 -O2 -Wall -Wextra -Werror -Itests/tls_mock -Iinclude tests/test_tls_socket.cpp -o build/tls-socket-test
+          build/tls-socket-test
           python3 -m pip install -r requirements-build.txt
           python3 tools/build_gui.py --preview --compiler g++
   switch2:

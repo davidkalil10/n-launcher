@@ -13,3 +13,11 @@ O SHA-256 do NRO acompanha dist/SHA256SUMS.txt (saída de build, não fonte vers
 ## Automação
 
 [GitHub Actions 45751145060](https://github.com/davidkalil10/nx2-link-enhanced/actions/runs/45751145060), commit b47cff5: testes sintéticos no Linux e build/verificação de NRO no Windows aprovados. NRO de teste guardado no rascunho probe-45751145060, sem publicação oficial. SHA-256: `704a339475fdde36dd1519c2fa186adf04b5d3a4e84f4e40835254e9c62f71eb`. Teste no console permanece pendente.
+
+## Prova sintética 0.0.2
+
+- Testes locais de leitura NUP/split: 12 aprovados; testes de propriedade e falha de mapeamento/descarregamento aprovados.
+- Módulo sintético: sem relocações pendentes, 14 instruções, referências PC-relativas conferidas, nenhum SVC/import.
+- [GitHub Actions 45757116079](https://github.com/davidkalil10/nx2-link-enhanced/actions/runs/45757116079), commit b14a7b0: testes Linux e build/verificação do NRO Windows aprovados.
+- NRO local e CI com SHA-256 idêntico: `ac242c2e75bf70abb5e38da5ff18cda1be0a17d96508967cbd99faa256a1ca77`.
+- Teste X no console pendente. A implementação usa somente a sessão ldr:ro herdada e não reativa kaiHEN. NUPs e saves não são acessados pelo teste X.

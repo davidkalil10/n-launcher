@@ -1,4 +1,4 @@
-name: Reader and kaiHEN loader probe
+name: N Launcher build and verification
 on: [push, pull_request, workflow_dispatch]
 permissions:
   contents: read
@@ -16,6 +16,12 @@ jobs:
           python3 tests/test_input.py build/probe
           g++ -std=c++17 -O2 -Wall -Wextra -Werror -Iinclude tests/test_module_lease.cpp -o build/lease-test
           build/lease-test
+          g++ -std=c++17 -O2 -Wall -Wextra -Werror -Iinclude -Ithird_party/zstd src/input.cpp src/cache.cpp tests/cache_probe.cpp build/zstd.o -o build/cache-probe
+          python3 tests/test_cache.py build/cache-probe
+          g++ -std=c++17 -O2 -Wall -Wextra -Werror -Itests/mock -Iinclude src/input.cpp src/native_input.cpp tests/native_backend_probe.cpp -o build/native-backend
+          python3 tests/test_native_backend.py build/native-backend
+          python3 -m pip install -r requirements-build.txt
+          python3 tools/build_gui.py --preview --compiler g++
   switch2:
     needs: host
     if: github.event_name != 'pull_request'
@@ -47,6 +53,9 @@ jobs:
           tar -xzf $archive -C $scratch
           if($LASTEXITCODE -ne 0){throw 'SDK extraction failed'}
           "NX2_SDK=$scratch/devkitpro" >> $env:GITHUB_ENV
+      - name: Install pinned build-only image/font dependency
+        shell: pwsh
+        run: python -m pip install -r requirements-build.txt
       - name: Build and verify Switch 2 startup and libraries
         shell: pwsh
         run: ./scripts/build-switch2.ps1 -SdkRoot $env:NX2_SDK -SupportRoot '${{ steps.msys2.outputs.msys2-location }}/usr/bin'
@@ -56,5 +65,5 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          gh release create "probe-$env:GITHUB_RUN_ID" dist/nx2-link-switch2.nro dist/SHA256SUMS.txt --draft --prerelease --target $env:GITHUB_SHA --title "Loader probe - test $env:GITHUB_RUN_ID" --notes 'NUP/split inspection; Y: verified program preparation; X: synthetic kaiHEN module load/call/unload. Uses the existing kaiHEN session; does not activate it or run games. Hardware loader validation pending.'
+          gh release create "probe-$env:GITHUB_RUN_ID" dist/nx2-link-switch2.nro dist/SHA256SUMS.txt --draft --prerelease --target $env:GITHUB_SHA --title "N Launcher 0.0.4 - test $env:GITHUB_RUN_ID" --notes 'Experimental N Launcher: graphical library, NUP/split reader, verified streaming SD cache and embedded generic loader. Uses existing kaiHEN. Game/audio/save validation on hardware is pending.'
           if($LASTEXITCODE -ne 0){throw 'Draft upload failed'}

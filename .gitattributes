@@ -7,3 +7,9 @@
 *.ps1 text eol=crlf
 docs/reference/*.md whitespace=-blank-at-eol,-blank-at-eof
 third_party/** text eol=lf whitespace=-blank-at-eol,-blank-at-eof
+third_party/nx2-relink/runtime/font.bin -text
+
+third_party/nx2-flow/** text eol=lf
+third_party/nx2-flow/loader/runtime/font.bin -text
+
+third_party/noto-sans/NotoSans.ttf -text

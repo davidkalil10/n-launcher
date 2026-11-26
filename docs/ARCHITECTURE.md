@@ -1,33 +1,33 @@
 # Arquitetura
 
-## Caminho proposto
+## Componentes e limites de confiança
 
-`Input (arquivo ou partes) -> índice NUP -> seleção base/update -> preparação RomFS e módulos -> runtime -> kaiHEN ldr:ro -> jogo`
+`Biblioteca gráfica -> Input -> Archive -> preflight dos módulos + cache streaming -> envSetNextLoad -> loader genérico -> ldr:ro -> jogo`
 
-Implementado: Input, inventário com TOC verificada, prova sintética confirmada no console, seleção do programa de maior versão e preparação de imagens NSO LZ4 com verificação de hashes (docs/PROGRAM_PREPARATION.md). Não implementado: ZBIC, RomFS, integração das imagens ao runtime e início do jogo.
+O núcleo de leitura, preparação e cache é MIT. A interface utiliza componentes GPL-2.0-or-later do nx2-flow/Toronja; a aplicação gráfica combinada segue essa licença. O carregador é um componente MIT separado, incorporado à distribuição como NRO. Fontes upstream permanecem originais e verificadas por SHA-256; scripts aplicam alterações explícitas a cópias de build.
 
-## Entrada única e splitada
+## Interface
 
-Toda leitura futura, incluindo zstd, NSO, metadados e RomFS, deve receber Input/read_at, nunca abrir somente a parte 00 como se fosse o jogo inteiro. Partes são ordenadas pelo índice numérico, com início zero e largura consistente. Não se exige tamanho igual das partes; offsets cumulativos de 64 bits permitem divisões arbitrárias. Apenas um arquivo de parte fica aberto durante cada trecho de leitura.
+O mesmo `Menu` desenha uma superfície RGBA 1280×720 no console e nas prévias do PC. O framebuffer e a leitura do controle ficam no driver do Switch. Preparação e escrita do cache ocorrem em thread própria para que o progresso continue visível. Estado de trabalho é sincronizado; sair não libera buffers de uma operação ainda em execução.
 
-O cabeçalho e a TOC também podem atravessar partes. O tamanho declarado do container precisa corresponder ao total físico; a falta da última parte é detectada mesmo quando os índices restantes são contíguos. A inspeção não é um verificador integral de arquivos ou diretórios internos; limites adicionais serão necessários antes de descompactar ou executar conteúdo.
+A biblioteca reutiliza o leitor de metadados do nx2-flow sobre nosso Input. Pastas `.nup` são entradas de jogo. A invalidação dos metadados considera tamanho e modificação de todas as partes; a verificação antes da execução não depende desse cache visual.
 
-## Dados do jogo
+## Entrada e runtime
 
-Gerar RomFS exige descompressão zstd por streaming e construção de índices. O plano é escrever em blocos de até 2 GiB em FAT32 e finalizar um manifesto somente após sucesso. Planejar espaço antes da operação, permitir cancelamento e nunca substituir cache válido por um resultado parcial. O tamanho expandido pode ser maior que o NUP. Montagem direta do NUP sem imagem é pesquisa posterior, não requisito inicial.
+Input valida a lista de partes, offsets de 64 bits, tamanho declarado e SHA-256 da TOC. Archive faz travessia adicional com limites, detecção de ciclos e seleção de programa/overlay. Não se presume que a parte 00 contenha o arquivo inteiro; cabeçalho, TOC e payloads podem cruzar fronteiras.
 
-## Código executável: hipótese a validar
+No processo do loader, Input é utilizado durante o setup para abrir a mesma lista de partes em handles FS nativos. Depois disso, as threads do jogo usam apenas POD, operações atômicas e `fsFileRead`: STL/C stdio/alocação podem acessar TLS do host e não pertencem a esse caminho. O cache nativo tem a mesma restrição.
 
-O builder Python atual gera assembly, tabelas modules.c e um NRO específico usando GCC. O novo projeto não tentará executar esses scripts ou instalar GCC no console. Estudar primeiro um runtime fixo que receba descritores de módulos preparados em C++ e use o mesmo caminho whole-module do upstream via kaiHEN ldr:ro.
+O runtime nx2-flow 0.1.3 prepara imagens e descritores dinâmicos, resolve símbolos/relocações/TLS e usa o serviço kaiHEN RO. Seu merge de módulos respeita o limite de sete imagens adicionais. O código de áudio coincide com a referência nx2-relink 0.1.12; essa equivalência de fonte não confirma áudio no console nesta integração.
 
-Ainda é preciso resolver: NSO LZ4/ZBIC, imports/relocações, TLS, símbolos compartilhados entre módulos, thunks SVC, tabelas dinâmicas, encerramento e jogos que carregam módulos adicionais. O modo whole tem limite de imagens de ldr:ro; alguns jogos exigem modo misto. Isso é o principal risco, não a extensão .nup.
+## RomFS e memória
 
-## Memória e ciclo de vida
+O loader constrói cabeçalho e tabelas de um RomFS virtual em memória. Arquivos sem compressão vêm diretamente do NUP. Arquivos comprimidos até 64 MiB continuam no cache RAM upstream. Os maiores são preparados com Zstd streaming e SHA-256 para o SD, em partes de 1 GiB, e servidos como entradas kind=3. Não se monta um RomFS gigante persistente e não se carrega o jogo inteiro na RAM.
 
-Não alocar o NUP inteiro nem copiar todas as partes. Limitar TOC, buffers e descompressão. Medir memória do runtime e permissões herdadas do jogo hospedeiro. Configuração de memória por título é explícita e versionada; não transferir automaticamente um valor que abriu um jogo para outros títulos.
+O preflight de cache aplica base/updates e verifica espaço antes de gravar. A confirmação só é publicada após tamanho e hash aprovados. Saves e dados do runtime têm namespace exclusivo `/switch/nx2-link/<ID>/`; os saves nativos não são abertos para escrita. [Formato do cache](CACHE.md).
 
-Saves ficam em namespace próprio, separado dos saves nativos e dos ports atuais. Um cache por título/build/perfil/runtime deve invalidar só o que mudou. Não reutilizar nomes de pastas como identidade de um jogo.
+## Handoff e ciclo de vida
 
-## O que este projeto não faz
+O NRO principal contém o loader e materializa sua versão na pasta interna `.runtime`. O handoff informa o caminho original do NUP e o NRO do menu para retorno. Não há instalação de título ou nova ativação do kaiHEN. Ownership e permissões do carregamento continuam sob o protocolo upstream; a prova sintética anterior valida somente o seu caminho reduzido de carga/execução/descarga.
 
-Não converte jogos de Switch 2 em jogos de Switch 1; não emula CPU/GPU como o Eden; não instala títulos no sistema; não modifica NAND; não contorna criptografia; não distribui jogos; não garante áudio, saves ou compatibilidade antes de testes específicos.
+Preflight ZBIC, compatibilidade de jogos, áudio, saves e retorno são limites explícitos. Este projeto não converte jogos de Switch 2 em títulos de Switch 1, não é um emulador de CPU/GPU, não modifica NAND e não distribui jogos ou chaves.

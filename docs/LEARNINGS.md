@@ -34,3 +34,11 @@ A pasta renomeada e recopiada apresentou NUP v1, primeiros 4 KiB iguais ao PC e 
 ## Preparação do programa
 
 A prova sintética do loader foi confirmada no hardware. Na etapa seguinte, a preparação C++ do Pokopia splitado escolheu a atualização correta e produziu imagens idênticas às do builder PC para main/subsdk0/sdk, com hashes NSO e segmentos conferidos. Isso valida a transformação dos dados no host; não prova ainda imports/relocações ou execução do jogo no console.
+
+## Integração nx2-flow e interface
+
+O loader 0.1.3 já recebe um caminho NUP e prepara os descritores dinamicamente. Seu audio2.c coincide com a referência 0.1.12 que corrige áudio no builder; não é necessário portar o gerador Python inteiro para o console. A versão original lê um único FsFile: a adaptação central de leitura precisa usar a mesma lista de partes validada pelo Input.
+
+O maior arquivo comprimido do Pokopia expande para cerca de 2,56 GB, além da área de até 2 GiB configurável para o loader. Adotar apenas o loader sem mudar sua política de descompressão não resolve esse caso. Cache no SD evita a alocação integral; ainda é preciso medir sua execução no hardware.
+
+A fonte baked original do menu não cobre corretamente todos os acentos em português. Noto Sans OFL foi incluída e gerada para o mesmo renderer. No Windows, opendir/stat C podem interpretar UTF-8 como ANSI; o catálogo foi adaptado para filesystem com conversão UTF-8 explícita. Fixtures com Café e NUP dividido cobrem esse caso.

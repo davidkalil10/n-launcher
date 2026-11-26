@@ -68,6 +68,11 @@ class Program(unittest.TestCase):
         raw,sha=nso();out=self.run_program(nup([(0,0,{'main':b'bad base'}),(1,65536,{'main':raw})]));self.assertIn('version=65536',out);self.assertIn(sha,out)
     def test_update_wins_tied_version_independent_of_package_order(self):
         raw,sha=nso();out=self.run_program(nup([(1,0,{"main":raw}),(0,0,{"main":b"bad base"})]));self.assertIn(sha,out)
+    def test_update_with_title_id_800_variant(self):
+        raw,sha=nso();blob=bytearray(nup([(0,0,{"main":b"invalid base"}),(1,1,{"main":raw})]))
+        struct.pack_into('<Q',blob,0x80+0x30+0x40,0x0400000000000800)
+        size=struct.unpack_from('<Q',blob,16)[0];blob[24:56]=hashlib.sha256(blob[128:128+size]).digest()
+        self.assertIn(sha,self.run_program(bytes(blob)))
     def test_skip_dlc(self):
         raw,_=nso();self.run_program(nup([(0,0,{'main':raw}),(2,999999,{'main':b'bad dlc'})]))
     def test_nup_payload_hash(self):

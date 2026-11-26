@@ -15,3 +15,9 @@ __pycache__/
 *.nro
 *.elf
 *.map
+
+# Public upstream font asset, verified against the pinned runtime.
+!third_party/nx2-relink/runtime/font.bin
+
+# Public pinned runtime font, not game data.
+!third_party/nx2-flow/loader/runtime/font.bin

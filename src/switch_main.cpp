@@ -63,7 +63,7 @@ int main() {
                 status=text;
             } catch(const std::exception& e) {status=std::string("ERRO: ")+e.what();}
         }
-        consoleClear();std::printf("NX2 Link Enhanced " NX2LINK_VERSION " - Loader Probe\n\n%s\n\n",directory.string().c_str());
+        consoleClear();std::printf("N Launcher " NX2LINK_VERSION " - Loader Probe\n\n%s\n\n",directory.string().c_str());
         const size_t first=(selected/15)*15;
         for(size_t i=first;i<std::min(first+15,entries.size());++i)
             std::printf("%c %s\n",i==selected?'>':' ',entries[i].filename().string().c_str());

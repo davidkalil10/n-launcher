@@ -30,3 +30,9 @@ O SHA-256 do NRO acompanha dist/SHA256SUMS.txt (saída de build, não fonte vers
 - [GitHub Actions 45759241537](https://github.com/davidkalil10/nx2-link-enhanced/actions/runs/45759241537), commit a8b292a: testes e NRO aprovados.
 - SHA-256 do NRO de teste: `e5396d0b8a877a2537120b4b15d81eae87c492523065ab34962662c0c3ba872c`.
 - Preparação Y do Pokopia confirmada no console em 2026-11-26, mantendo o kaiHEN ativo. O jogo não é executado nesta versão.
+
+## Integração experimental 0.0.4
+
+Interface gráfica e runtime genérico incorporado; arquivos grandes de RomFS são preparados para cache no SD. Testes locais incluem 28 testes de leitura/preparação (incluindo update com ID variante 0x800), ownership do carregador, sete casos de cache, três casos do backend nativo com FS simulado e ações/metadados/persistência da GUI. O verificador estrito é aplicado aos dois NROs.
+
+Execução de jogo, framebuffer no console, áudio, saves e retorno ao menu ainda não validados nesta integração. O resultado da prova X e da preparação Y anteriores continua válido para seus próprios escopos.

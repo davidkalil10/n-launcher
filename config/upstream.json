@@ -1,11 +1,11 @@
 {
   "repository": "https://github.com/Olmectron/nx2-relink",
-  "tag": "v0.1.11",
-  "commit": "c72a1eca45ab6bbfbbb7eba8a8e56447db53562d",
+  "tag": "v0.1.12",
+  "commit": "b3e0fc4540784d45cd40dd9a97b1f4a5d0bacaad",
   "license": "MIT",
-  "runtimeImported": false,
+  "runtimeImported": true,
   "runtimeCompatibilityBaseline": "kaiHEN 20261117.1",
-  "notes": "Synthetic loader probe uses the existing inherited ldr:ro session. Game runtime not imported.",
+  "notes": "Pristine runtime imported from the locally tested 0.1.12 build; all files match official tag after text newline normalization. Adaptations generated separately at build time.",
   "kaihenProtocolSource": {
     "commit": "3695f364f9270686aa72cc39627bb1281752b2d3",
     "repository": "https://github.com/ouncebrew/kaihen",
@@ -16,5 +16,32 @@
       "ro/source/mapping.cpp"
     ],
     "use": "Protocol/layout research only; no GPL implementation copied"
+  },
+  "runtimeFiles": {
+    "runtime/audio2.c": "30de2edfe8898d67f17afdcfc1d8fc936b59409fc144837cfc1b30a9c6ad202d",
+    "runtime/control.c": "49d72b6280152af4f04beec562385eea1a8b7d1e9e58c7a10e6ebc55cb6b9472",
+    "runtime/erpt.c": "75a9dda1d977090c6f8270e53ecaf020759878f913b56e881a9a8ec80a75cdfc",
+    "runtime/fault_entry.s": "d260c3cddeecc0db6ec1225a3a39d64202b210e03a702b39addc20be4121e3df",
+    "runtime/fault_raw.c": "9452de492e6069089167742d9216cc1f0e6173be742fa63b1611fabb309255bc",
+    "runtime/font.bin": "194d4808c487f8cc54856cd0e2cd6d2de091135c103bd4622e324a20cc87be48",
+    "runtime/font.s": "2028c4427aad19840b4a8963c5f13a95a6141f1c24c4a02d4442ba74336713d9",
+    "runtime/gl2.c": "c24f69833c408308555aa686a6695c31a1f7d90755d2a84b6366a1a14261e03b",
+    "runtime/glvk.c": "e15a9587b8fa95e74634089dae4b2ee04a891566599529b0f97f856e25d5b89a",
+    "runtime/glvk_route.h": "ffee6fc650efa342f4123184dfed352888e32b421de99c167482aaca87b18013",
+    "runtime/hostend.c": "4b9c43354f6c633c60c4141efc2adb2567c784337c04258a00fc50c298b12264",
+    "runtime/loader.c": "3829103ca22d64d1f482a97ac86b853768e01e8de20018f8aeddad9fd9f61180",
+    "runtime/log.c": "b9048f067b012d492257182e0ca6396307cbf3c6e7b561ad15ef8b30303c9754",
+    "runtime/main.c": "30cef5e5401f2d05f65e103b985776ca0b4b1b135d94381c4c51db2692f429d8",
+    "runtime/menu2.c": "147788b2447b8a2974edf4eb3a4b1a2d827c655b6fa1d6b024a401028ef6b27a",
+    "runtime/netwatch.c": "6b310a6d3e403461ab34f64a447ab4f52b8b5dd2888e925c0d0689f26f8d8919",
+    "runtime/nvn2.c": "35c8a95fb5db039be841297dbc2f711187e63aa73da643433dc05924bcfeb973",
+    "runtime/nvnwatch.c": "b1a041782b2f45ee0de48a3661770b722f2d22533996c3185df1fb52543ae8c5",
+    "runtime/nx2.h": "45b4f294ff6739b23e2e502f03d17ba1a0d4275a7e2e7528aab64c37c7d72960",
+    "runtime/pactest.c": "994df1a882b58569cad015c7d5dbf84ef8de84ffe852f123e5e3e9f682512690",
+    "runtime/ro.c": "efddd0ad5dbd40714b5d2ab63222e11d8ebaddf813793df55d993d02b05ca054",
+    "runtime/rom.c": "b784fbb9b43c76c5e3f4c8dfbb2362d388ce7c9064ab9b59296a3688db3bb1bb",
+    "runtime/svc.c": "b73e44d73041506e22b7b442aa4d6655335011b27d9bcc2683305f7484dc0c68",
+    "runtime/svc_entry.s": "d0a238d9fde82de2fe0a0e5ef7158ca62c390504fb45a876fb9c402206220930",
+    "runtime/whole.c": "f30b6fd5d1d39135d82093d735621391047fccba99295a7d198276589ae4c193"
   }
 }

@@ -1,45 +1,52 @@
-# Continuidade do projeto
+# Continuidade — N Launcher
 
-## Pedido e objetivo
+## Objetivo e estado
 
-Preparar/relinkar backups NUP no próprio Switch 2, inclusive pastas .nup com partes 00,01,..., sem precisar do PC para cada jogo. Repositório: https://github.com/davidkalil10/nx2-link-enhanced. Não confundir com nx2-relink-enhanced, que é o builder Windows separado.
+Preparar e iniciar NUPs diretamente no Switch 2, incluindo pastas `.nup/00,01,…`, sem compilar um port por jogo no PC e sem reativar kaiHEN para atualizar a NRO. Nome público: **N Launcher**; repositório e caminhos internos nx2-link-enhanced/nx2link/nx2-link são mantidos.
 
-## Implementado
+**0.0.4 é uma integração experimental, pendente de teste de jogo no console.** M0/leitura, prova sintética X (3/3) e preparação Y dos três módulos do Pokopia em 0.0.3 já foram confirmados no hardware. Não solicitar outra prova equivalente como substituição de avanço real. Não afirmar que o jogo, áudio ou saves funcionam no runtime novo sem confirmação.
 
-Leitor C++ read-only, inventário NUP v1, validação SHA-256 da TOC, CLI de diagnóstico, fixtures sintéticas e frontend console para Switch 2. Scripts de build e verificador estrito do pacote. A versão 0.0.2 também implementa o botão X: prova de módulo sintético via sessão ldr:ro já ativa, com três ciclos e registro persistente. Ainda sem runtime de jogo, execução de jogo, extração ou geração RomFS.
+## Organização das fontes
 
-## Fontes úteis
+- `src/input.cpp`: leitor comum completo/split e verificação da TOC; offsets cumulativos de 64 bits.
+- `src/archive.hpp`: travessia verificada compartilhada, seleção de módulos e overlay de RomFS base/updates.
+- `src/program.cpp`: preparação NSO, LZ4, hashes e inventário SVC. Preserva SVC 0x36. Preflight ainda rejeita ZBIC.
+- `src/cache.cpp`: descompressão streaming dos arquivos grandes de RomFS, SHA incremental, staging, espaço e publicação.
+- `src/gui.cpp`: interface gráfica independente do console; `gui_switch.cpp`: framebuffer, controle, thread de preparação e handoff.
+- `src/native_input.cpp`: setup com Input; leituras no contexto do jogo usam somente estruturas POD, locks atômicos e FS nativo. Não usar STL, alocação ou C stdio no caminho das threads do jogo.
+- `third_party/nx2-flow`: cópia original fixada; `config/flow.json`: commit, versões, licenças e hashes.
+- `tools/prepare_flow.py` e `runtime_patches.py`: verificam snapshot e geram adaptações em `build/flow/`. Não editar os arquivos gerados como fonte da solução.
+- `third_party/nx2-relink/runtime`: referência original 0.1.12 com correção de áudio; não é o runtime linkado. `audio2.c` corresponde ao do loader fixado do nx2-flow.
 
-- include/nx2link/input.hpp e src/input.cpp: contrato que TODAS as futuras leituras devem usar.
-- src/switch_main.cpp: navegador de diagnóstico somente leitura.
-- tests/test_input.py: testes com containers sintéticos, nenhum código de jogo.
-- config/upstream.json: base upstream; config/windows-sdk.json: SDK público fixado.
-- docs/reference/SWITCH2_PORTING_BIBLE.md: cópia histórica da documentação do Eden, com autoria preservada. Detalhes antigos exigem revisão.
+## Caminho de execução
 
-## Próxima investigação
+Menu -> thread própria: preparar/verificar NSOs -> preparar cache RomFS grande -> materializar NRO interno -> `envSetNextLoad` com caminho do NUP e retorno ao menu -> runtime genérico lê o NUP/split, prepara imagens e RomFS virtual, resolve módulos/imports/TLS/thunks e usa `ldr:ro` -> jogo.
 
-Comparar runtime/nx2.h, whole.c, loader.c, svc_entry.s, svc.c e ro.c com o código gerado por tools/relink.py do upstream fixado. Definir como produzir descritores e imagens no console, onde guardar configuração de jogo hoje compilada via NX2_NAME e como reservar o limite de imagens do loader. Fazer primeiro um módulo sintético e retorno ao menu; só depois tentar o Pokopia.
+O frontend inclui o NRO genérico como recurso. O usuário copia somente o NRO principal. O carregador é materializado em `/switch/nx2-link/.runtime/`, com arquivo temporário e preservação da versão anterior durante a troca. Isso não instala ou atualiza kaiHEN. A chamada do carregador usa a sessão herdada do hbmenu.
 
-O teste de Pokopia via PC exibiu imagem com ajuste de memória, mas ficou sem som. O dump de teste atual está splitado. Não presumir que áudio/saves foram validados. Não pedir um NUP não splitado como solução para limitações do leitor.
+O loader fixado faz merge dos módulos que não precisam ficar whole para respeitar o limite de sete imagens adicionais do serviço RO. Implementação de áudio, relocações, SVC, TLS e GPU nativa permanece upstream. O adaptador altera fonte de dados, cache e namespaces, não tenta executar código de jogo de heap RW.
 
-## Limites operacionais
+## Cache e memória
 
-Não editar o Eden, builder Windows, dumps ou saves. Não enviar jogos/chaves/saves a serviços de build. Não conectar ao console usando um IP antigo sem confirmação da sessão atual. Não apagar caches, backups ou releases de outros projetos. Validar pacote e host tests antes de qualquer teste de execução no hardware.
+O loader upstream descomprime arquivos inteiros para RAM. Pokopia contém um arquivo expandido de cerca de 2,56 GB, acima da área reservável do loader. Nossa adaptação troca arquivos comprimidos maiores que 64 MiB por entradas kind=3, lidas do cache em partes de 1 GiB. Arquivos pequenos continuam no cache RAM upstream. Arquivos sem compressão são lidos diretamente do NUP/split.
 
-## Último diagnóstico
+O cache é por SHA-256 do conteúdo, com marcador NLC1 e tamanho/partes. Não depende do nome do jogo nem do runtime: são bytes originais descomprimidos, sem relocações. Consulte `docs/CACHE.md`. Não concatenar o jogo nem gerar um RomFS gigante como contorno para o split.
 
-Elliot Demo passou na inspeção no console. A pasta Pokopia no SD e a pasta local têm nomes parecidos, mas cabeçalhos e tamanhos diferentes: SD = PFS0/NCA; local = NUP v1 válido. Não reescrever o leitor splitado por esse motivo e não presumir que o conteúdo do SD corresponde ao arquivo que abriu no builder PC. Ver docs/LEARNINGS.md.
+## Testes e build
 
-## Estado atual do marco de carregamento
+- `scripts/test-host.ps1`: leitor, preparação e ownership do módulo sintético.
+- `scripts/test-launcher.ps1`: cache streaming e o backend nativo real com FS simulado.
+- `tools/build_gui.py --preview --compiler <g++>`: biblioteca sintética, metadados split/acentos, ações, cancelamento e persistência; imagens com o mesmo renderer do console.
+- `scripts/build-switch2.ps1`: gera prova, runtime e frontend; verifica ambos os pacotes e mapas. Pillow da build está fixado em requirements-build.txt.
 
-Pokopia NUP v1 splitado e Elliot passaram na inspeção no console. A prova X de 0.0.2 passou no kaiHEN existente. A preparação Y de 0.0.3 também passou no console, sem reativação. Ver docs/LOADER_PROBE.md. O módulo sintético não tem imports/TLS/SVC; foi gerado pelo assembler e não é o runtime de jogo. Não avançar a execução do Pokopia com base apenas na build aprovada.
+Separar testes locais, verificação de binário e validação de console em todos os relatos. Não enviar jogos, chaves, saves, caminhos privados ou logs de SD ao CI/Git. Fixtures próprias apenas. Não modificar Eden, builder Windows, dumps ou saves usados como referência.
 
-## Marco atual — 0.0.3
+## Próximo teste no hardware
 
-O teste X de 0.0.2 passou no console, confirmado com a mensagem 3/3. Não pedir outra ativação do kaiHEN. A versão 0.0.3 adiciona Y para preparar os módulos reais do NUP (completo ou splitado). Input é compartilhado; Zstd streaming -> SHA do NSO -> segmentos LZ4/SHA -> imagem com offsets originais -> relatório. Ainda não mapeia esses módulos nem chama o jogo.
+Copiar a build de teste para o SD, abrir no hbmenu existente, escolher a pasta com o NUP splitado correto e usar Preparar ou Jogar. A primeira preparação pode levar minutos e exige espaço extra no SD. Confirmar visual, navegação e progresso; depois observar o handoff e a inicialização do jogo. Se houver erro, coletar `/switch/nx2-link/logs/menu-operation.log` e a pasta `<ID>/` (log/crash), mantendo os arquivos originais preservados.
 
-As imagens main/subsdk0/sdk do Pokopia foram comparadas com o builder upstream: hashes e MOD0/dynamic/object/end idênticos. Consulte docs/PROGRAM_PREPARATION.md. Próximo marco: integrar Nx2Module/Nx2Image dinâmicos ao runtime MIT do upstream, resolver símbolos/relocações/TLS, gerar thunks sem modificar SVC 0x36 e servir RomFS. ZBIC continua não implementado; não tentar tratar como LZ4 ou apenas trocar o magic.
+Não acessar um IP antigo do console sem confirmação da sessão atual. Não reiniciar ou reativar kaiHEN automaticamente. Uma falha depois do handoff pode encerrar o processo ou a sessão: o retorno ao menu depende do runtime e ainda precisa de validação no hardware.
 
-## Checkpoint confirmado no console
+## Limitações abertas
 
-Em 2026-11-26 a preparação Y do Pokopia em 0.0.3 foi confirmada com sucesso. M0, prova sintética X e preparação dos módulos reais Y estão validados no hardware. Avançar para integração do runtime; não repetir uma nova prova equivalente nem exigir reativação do kaiHEN para atualizar a NRO. Execução do jogo, áudio e saves continuam não validados neste projeto.
+Execução, áudio, saves e retorno ainda pendentes nesta integração; preflight ZBIC não implementado; formatos criptografados PFS0/NCA não suportados; suporte adicional `.nup.00` está no leitor, mas não no catálogo gráfico. A reutilização de cache confere marcador e tamanhos, sem rehash completo. Cancelar refaz o arquivo de staging na próxima tentativa, sem retomada por bloco. Perfil de memória e gerenciamento/limpeza de cache precisam de interface própria. Não publicar uma release estável apenas porque a build passou.

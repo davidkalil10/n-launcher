@@ -87,3 +87,7 @@ O teste do updater no console falhou com a mensagem genérica de conexão segura
 include/nx2link/tls_socket.hpp contém o adaptador e o erro com etapa/host/Result/errno. tests/tls_mock e test_tls_socket.cpp cobrem contrato ENOENT, retorno de handle e falhas. Fonte de referência: SDK libounce fixado, nx/source/runtime/devices/socket.c e headers ssl.h/socket.h. Não desabilitar validação de certificado/data nem cair para HTTP para contornar falhas. Origem exata do erro observado só será confirmada com nova tentativa no console; não afirmar TLS validado por teste mock.
 
 Instalar a 0.0.9 manualmente, preservando dados, e testar R para consultar a release atual. Após confirmar a consulta no console, publicar uma versão posterior para testar download e reabertura de ponta a ponta. O runtime de jogo não muda.
+
+## Checkpoint 0.0.10
+
+Orbitals abriu no console após a correção de pacote. Não inferir validação de áudio/saves a partir dessa confirmação. A 0.0.10 muda apenas versão e documentação em relação à 0.0.9; preserva a correção TLS, o runtime e os formatos de dados. Teste solicitado: usar R na 0.0.9 já instalada para baixar/instalar 0.0.10 e A para reabrir. Não pedir cópia manual antes desse teste. O teste de TLS/atualização ainda não foi confirmado pela execução do Orbitals.

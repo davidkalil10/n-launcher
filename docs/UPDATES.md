@@ -46,3 +46,7 @@ Pressione R na 0.0.6, confirme a 0.0.7, aguarde instalar e pressione A para reab
 A 0.0.6 mostrou falha genérica de conexão segura no console. A implementação usava sslConnectionSetSocketDescriptor diretamente com um fd POSIX, contrariando a orientação do SDK. A 0.0.9 usa socketSslConnectionSetSocketDescriptor para traduzir o handle. Com DoNotCloseSocket, retorno -1/ENOENT é sucesso documentado e não uma falha. Outros erros mostram etapa/host/Result ou errno. CA, hostname e data continuam verificados.
 
 É necessário substituir o NRO manualmente para aplicar esta correção em uma versão cujo download falha. Depois, testar R na 0.0.9: a consulta deve reconhecer a versão atual. Não publicar uma versão vazia apenas para forçar troca antes de validar a consulta TLS no console. Confirmada a consulta, preparar uma versão posterior para testar download/troca/reabertura. Nada nesta correção requer reinstalar o kaiHEN ou refazer o cache.
+
+## Teste 0.0.9 → 0.0.10
+
+Com a correção TLS da 0.0.9 instalada, pressione R, confirme 0.0.10, aguarde instalar e pressione A para reabrir. Conferir a versão exibida e a confirmação do novo processo. A mudança 9 → 10 é comparada numericamente; a suíte cobre esse caso. O código de execução permanece o mesmo, para separar o teste do atualizador de mudanças no jogo. Ainda é necessária validação de cada etapa no hardware.

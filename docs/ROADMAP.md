@@ -8,6 +8,8 @@
 - Biblioteca gráfica, capas, seleção persistente de pasta, progresso e cancelamento.
 - Pokopia splitado validado no console com imagem, áudio, controles, salvar e carregar em 0.0.5.
 
+- Abertura do Orbitals confirmada após suporte a pacote autocontido marcado como atualização; áudio e saves desse título ainda sem confirmação específica.
+
 ## Implementado em 0.0.6 — validar no console
 
 - Perfis de memória por título, mantendo Automático como padrão.

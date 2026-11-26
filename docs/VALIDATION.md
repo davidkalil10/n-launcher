@@ -64,3 +64,9 @@ Pokopia splitado executou com imagem, áudio e controles corretos; salvar e carr
 Orbitals original e splitado: índice íntegro, um pacote kind=1. A exigência prévia de kind=0 divergia do runtime. Após ajuste, os três módulos passaram no preflight local, incluindo hashes de conteúdo/NSO. Execução e completude dos arquivos usados em jogo ainda dependem de teste de console.
 
 22 testes de programa e 12 do leitor passaram; cache inclui caso kind=1 splitado, com conferência dos bytes descomprimidos. Mantidos testes de corrupção/cancelamento/reutilização. Somente fixtures sintéticas estão no repositório.
+
+## 2026-11-26 — Orbitals e teste de atualização 0.0.10
+
+Abertura do Orbitals confirmada no console após a correção para NUP autocontido marcado como atualização. Isso valida o avanço além da preparação para este arquivo; não comprova áudio, salvar/carregar ou retorno ao hbmenu desse título.
+
+0.0.10 mantém o código de execução da 0.0.9 e sobe a versão para testar o fluxo completo do atualizador. A confirmação da abertura do jogo não confirma funcionamento TLS. Aguardar teste separado de consulta, download, instalação, reabertura e confirmação no console.

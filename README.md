@@ -2,7 +2,9 @@
 
 Homebrew de Switch 2 para preparar e abrir backups NUP diretamente no console, sem compilar um port por jogo no PC. Aceita **NUP completo** e **pasta `.nup` com partes `00`, `01`, …** pelo mesmo seletor.
 
-**Pokopia splitado foi validado no console com imagem, áudio, controles, salvar e carregar funcionando.** A versão 0.0.9 mantém o alocador da interface que resolveu o fechamento observado na preparação e inclui perfis por jogo, atualização pelo console e a pasta `n-launcher`. Os recursos novos têm testes locais e de build; compatibilidade de outros jogos e validação do atualizador no hardware permanecem específicas de cada teste.
+**Pokopia splitado foi validado no console com imagem, áudio, controles, salvar e carregar funcionando.** A versão 0.0.10 mantém o alocador da interface que resolveu o fechamento observado na preparação e inclui perfis por jogo, atualização pelo console e a pasta `n-launcher`. Os recursos novos têm testes locais e de build; compatibilidade de outros jogos e validação do atualizador no hardware permanecem específicas de cada teste.
+
+**Orbitals também teve a abertura confirmada no console** após a correção para pacotes marcados como atualização. Áudio, saves e retorno desse título ainda precisam de verificação específica. A 0.0.10 permite testar a atualização a partir da 0.0.9, sem mudanças no código de execução.
 
 ![Biblioteca do N Launcher](docs/images/library.png)
 

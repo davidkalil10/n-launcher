@@ -46,6 +46,21 @@ class Archive {
         }
         active.erase(dir);
     }
+    uint64_t application_title()const {
+        bool base=false;uint64_t title=0;
+        for(auto p:inv_.packages)if(p.kind==0){if(base&&title!=p.title)bad("Multiple base titles not supported");base=true;title=p.title;}
+        if(base)return title;
+        // Match the generic runtime: a self-contained kind=1 package can be opened
+        // without a kind=0 label. This does not supply files absent from the NUP.
+        bool update=false;
+        for(auto p:inv_.packages)if(p.kind==1){
+            if(update&&(title&~0xfffull)!=(p.title&~0xfffull))bad("Update packages belong to different titles");
+            if(!update)title=p.title;
+            update=true;
+        }
+        if(!update)bad("No application or update package in this NUP");
+        return title;
+    }
 public:
     explicit Archive(const Input& input):input_(input),inv_(inspect(input)) {
         const auto h=input.read(0,0x80);
@@ -61,9 +76,7 @@ public:
         bounds(pool_,pool_size_,toc_.size());if(pool_<children_)bad("TOC string pool overlaps tables");
     }
     std::pair<Package,std::map<std::string,uint64_t>> program()const {
-        bool base=false;uint64_t title=0;
-        for(auto p:inv_.packages)if(p.kind==0){if(base&&title!=p.title)bad("Multiple base titles not supported");base=true;title=p.title;}
-        if(!base)bad("A base package is required in this version");
+        const uint64_t title=application_title();
         Package selected{};std::map<std::string,uint64_t> chosen;bool found=false;
         for(size_t i=0;i<inv_.packages.size();++i) {
             auto p=inv_.packages[i];if(p.kind>1||(p.title&~0xfffull)!=(title&~0xfffull))continue;
@@ -118,12 +131,7 @@ public:
         return result;
     }
     std::map<std::string,uint64_t> romfs() const {
-        std::vector<size_t> layers;bool base=false;uint64_t title=0;
-        for(size_t i=0;i<inv_.packages.size();++i)if(inv_.packages[i].kind==0){
-            if(base && title!=inv_.packages[i].title)bad("Multiple base titles not supported");
-            base=true;title=inv_.packages[i].title;
-        }
-        if(!base)bad("A base package is required");
+        std::vector<size_t> layers;const uint64_t title=application_title();
         for(size_t i=0;i<inv_.packages.size();++i){auto p=inv_.packages[i];if(p.kind<=1 && (p.title&~0xfffull)==(title&~0xfffull))layers.push_back(i);}
         if(layers.size()>8)bad("More than eight base/update layers are not supported by the current runtime");
         std::stable_sort(layers.begin(),layers.end(),[&](size_t a,size_t b){auto x=inv_.packages[a],y=inv_.packages[b];return x.kind!=y.kind?x.kind<y.kind:x.version<y.version;});

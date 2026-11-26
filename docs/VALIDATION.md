@@ -58,3 +58,9 @@ Pokopia splitado executou com imagem, áudio e controles corretos; salvar e carr
 - [CI da release 0.0.6](https://github.com/davidkalil10/nx2-link-enhanced/actions/runs/45876416386), commit 07434d7: testes Linux, build Windows, verificação dos dois NROs, pacote e publicação aprovados. A build da main e a build da branch também passaram.
 - NRO do CI: 20.112.583 bytes; SHA-256 `69ca8dcfa1cf495cad446ac1aa240a6ec28d7f40080ad540fe29af01c09d65d4`. Pacote baixado e hashes da API/SHA256SUMS conferidos; o validador C++ do atualizador aceita o NRO real.
 - ZIP de SD: 6.705.024 bytes, SHA-256 `d35220e59da8e1e6f04efe21afceb5b98eb55ace1fab5d86e1b6a43d9b36d49b`; contém somente aplicativo e licenças. Download sem login depende da visibilidade do repositório; não confundir publicação da release privada com feed público acessível.
+
+## 0.0.8 — preparação sem pacote kind=0
+
+Orbitals original e splitado: índice íntegro, um pacote kind=1. A exigência prévia de kind=0 divergia do runtime. Após ajuste, os três módulos passaram no preflight local, incluindo hashes de conteúdo/NSO. Execução e completude dos arquivos usados em jogo ainda dependem de teste de console.
+
+22 testes de programa e 12 do leitor passaram; cache inclui caso kind=1 splitado, com conferência dos bytes descomprimidos. Mantidos testes de corrupção/cancelamento/reutilização. Somente fixtures sintéticas estão no repositório.

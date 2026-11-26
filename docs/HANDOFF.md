@@ -73,3 +73,9 @@ A build de diagnóstico usa libounce_core/newlib apenas no frontend, alternativa
 ## Distribuição 0.0.7
 
 Repositório oficial público: https://github.com/davidkalil10/n-launcher. URL central do updater em include/nx2link/update.hpp. Git remote e empacotador usam o novo nome. O teste solicitado é atualizar a 0.0.6 já instalada pelo botão R; não pedir instalação manual da 0.0.7 antes desse teste. A URL legada responde por redirect do GitHub, sem token. Runtime/cache/saves e políticas de memória mantidos. Não reutilizar o nome antigo do repositório enquanto houver instalações antigas dependentes do redirect. HTTPS e troca no console permanecem pendentes até confirmação.
+
+## Correção 0.0.8 — pacote marcado como atualização
+
+O bloqueio "A base package is required in this version" vinha de Archive::program antes do runtime. O NUP original e o splitado do Orbitals têm TOC íntegra e um único pacote kind=1. O runtime upstream aceita esse caso. Archive::application_title agora prefere a base quando existe e aceita kind=1 da mesma família quando não existe kind=0; DLC isolado ou múltiplas famílias sem base são rejeitados. A seleção é compartilhada por programa e RomFS. Isto não prova que uma atualização arbitrária tenha todos os arquivos.
+
+22 testes de programa, 12 de leitor, 8 de cache, backend nativo e 38 verificações de app passaram localmente. Preparação dos três módulos do Orbitals splitado no PC aprovada; não houve mapeamento, execução de código do jogo, preparação de gigabytes ou gravação em saves. Validar no console após atualizar para 0.0.8 pelo R da 0.0.6/0.0.7.

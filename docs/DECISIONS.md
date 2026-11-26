@@ -20,3 +20,7 @@
 Manter newlib apenas no frontend, após validação completa do Pokopia. Preservar runtime e padrão Automático. Perfis são por Title ID; reserva do loader e memória reportada ao jogo são distintas e não mudam buffers da preparação.
 
 Adotar /switch/n-launcher e migrar por rename, sem duplicar cache. Preservar dados conflitantes. Publicar app e manifesto pelo mesmo pipeline; o atualizador confere TLS, tamanho, SHA, startup e NACP e mantém a versão anterior até confirmação do novo processo. Atualizações do upstream continuam revisões manuais.
+
+## 2026-11-26 — NUP autocontido marcado como atualização
+
+Alinhar preflight e cache ao loader genérico: não exigir rótulo kind=0 se há aplicação kind=1 utilizável. Manter seleção por família, ordenação e validações de hash/NSO. Não alterar o NUP, inventar uma base ou prometer completude de atualizações isoladas. Preparação válida não comprova execução.

@@ -2,7 +2,7 @@
 
 Homebrew de Switch 2 para preparar e abrir backups NUP diretamente no console, sem compilar um port por jogo no PC. Aceita **NUP completo** e **pasta `.nup` com partes `00`, `01`, …** pelo mesmo seletor.
 
-**Pokopia splitado foi validado no console com imagem, áudio, controles, salvar e carregar funcionando.** A versão 0.0.7 mantém o alocador da interface que resolveu o fechamento observado na preparação e inclui perfis por jogo, atualização pelo console e a pasta `n-launcher`. Os recursos novos têm testes locais e de build; compatibilidade de outros jogos e validação do atualizador no hardware permanecem específicas de cada teste.
+**Pokopia splitado foi validado no console com imagem, áudio, controles, salvar e carregar funcionando.** A versão 0.0.8 mantém o alocador da interface que resolveu o fechamento observado na preparação e inclui perfis por jogo, atualização pelo console e a pasta `n-launcher`. Os recursos novos têm testes locais e de build; compatibilidade de outros jogos e validação do atualizador no hardware permanecem específicas de cada teste.
 
 ![Biblioteca do N Launcher](docs/images/library.png)
 
@@ -27,6 +27,8 @@ Esta primeira instalação com atualizador é manual. Nas próximas versões, pr
 - **+ Sair:** volta ao hbmenu.
 
 O arquivo principal inclui o carregador. Não é necessário instalar Python, compilador ou DLLs no console. O aplicativo utiliza a sessão kaiHEN existente; não instala títulos no sistema nem altera saves nativos.
+
+NUPs autocontidos marcados como atualização também podem ser preparados, seguindo o comportamento do runtime. Um pacote de atualização incompleto continua precisando dos arquivos ausentes; o launcher não os cria.
 
 ## Memória por jogo
 

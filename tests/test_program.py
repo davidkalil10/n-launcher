@@ -73,6 +73,21 @@ class Program(unittest.TestCase):
         struct.pack_into('<Q',blob,0x80+0x30+0x40,0x0400000000000800)
         size=struct.unpack_from('<Q',blob,16)[0];blob[24:56]=hashlib.sha256(blob[128:128+size]).digest()
         self.assertIn(sha,self.run_program(bytes(blob)))
+    def test_standalone_update_package(self):
+        raw,sha=nso();self.assertIn(sha,self.run_program(nup([(1,327680,{'main':raw})])))
+    def test_standalone_update_package_split(self):
+        raw,sha=nso(True);self.assertIn(sha,self.run_program(nup([(1,327680,{'main':raw})],codec=1),split=True))
+    def test_standalone_updates_choose_latest_program(self):
+        raw,sha=nso();self.assertIn(sha,self.run_program(nup([(1,1,{'main':b'old invalid image'}),(1,2,{'main':raw})])))
+    def test_standalone_update_without_program_reports_missing_main(self):
+        raw,_=nso();self.assertIn('No main module',self.run_program(nup([(1,1,{'sdk':raw})]),ok=False))
+    def test_only_dlc_is_not_an_application(self):
+        raw,_=nso();self.assertIn('No application or update',self.run_program(nup([(2,1,{'main':raw})]),ok=False))
+    def test_standalone_updates_from_different_titles_rejected(self):
+        raw,_=nso();blob=bytearray(nup([(1,1,{'main':raw}),(1,2,{'main':raw})]))
+        struct.pack_into('<Q',blob,0x80+0x30+0x40,0x0400000000001000)
+        size=struct.unpack_from('<Q',blob,16)[0];blob[24:56]=hashlib.sha256(blob[128:128+size]).digest()
+        self.assertIn('different titles',self.run_program(bytes(blob),ok=False))
     def test_skip_dlc(self):
         raw,_=nso();self.run_program(nup([(0,0,{'main':raw}),(2,999999,{'main':b'bad dlc'})]))
     def test_nup_payload_hash(self):

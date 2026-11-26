@@ -2,7 +2,7 @@
 
 Homebrew experimental de Switch 2 para preparar e carregar backups NUP diretamente no console. O objetivo é escolher um NUP, preparar os dados uma vez e iniciar o jogo sem depender de um PC para cada jogo.
 
-**Estado atual: prova de leitura e carregador sintético, versão 0.0.2. Ainda não relinka, gera RomFS ou executa jogos.** Há um leitor C++ compartilhado entre o diagnóstico de PC e o NRO de teste. O botão X testa um módulo sintético pela sessão kaiHEN já ativa; o trabalho de carregar o código de jogos continua em pesquisa.
+**Estado atual: preparação de módulos e carregador sintético, versão 0.0.3. Ainda não relinka, gera RomFS ou executa jogos.** Há um leitor C++ compartilhado entre o diagnóstico de PC e o NRO de teste. O botão Y prepara e verifica os módulos reais em memória; X testa o carregador sintético pela sessão kaiHEN já ativa. O runtime que executará jogos continua em desenvolvimento.
 
 ## Entradas desde a primeira versão
 
@@ -16,7 +16,7 @@ As partes são um único espaço lógico de bytes, com offsets de 64 bits. O lei
 
 1. Copie `dist/nx2-link-switch2.nro` para `/switch/nx2-link/` no SD.
 2. Crie `/switch/nx2-link/input/` e coloque seu NUP, ou a pasta `.nup` completa, dentro. O navegador permite voltar e localizar arquivos em outras pastas do SD, sem precisar duplicá-los.
-3. Abra pelo hbmenu: direcional seleciona, **A** abre/inspeciona, **B** volta, **X** testa o carregador sintético, **+** sai. A pasta `.nup` é tratada como jogo, não como pasta para escolher só `00`.
+3. Abra pelo hbmenu: direcional seleciona, **A** abre/inspeciona, **B** volta, **X** testa o carregador sintético, **Y** prepara os módulos do NUP selecionado, **+** sai. A pasta `.nup` é tratada como jogo, não como pasta para escolher só `00`.
 
 A inspeção apenas lê os arquivos. O teste X escreve seu próprio registro em `/switch/nx2-link/logs/loader-probe.log`; não escreve na entrada, nos saves ou na memória interna. Ele usa a ativação kaiHEN existente, sem reiniciar ou refazer 4/4. A demo do Elliot passou na inspeção no console (1 pacote, 49 arquivos). A cópia NUP v1 splitada do Pokopia passou no leitor local; a cópia examinada no SD era outro container, PFS0/NCA, ainda não suportado. Consulte docs/LEARNINGS.md.
 
@@ -30,10 +30,15 @@ O GitHub Actions usa fixtures sintéticas e um SDK público verificado, fixado e
 
 ## Teste do carregador
 
-Pressione **X** sem selecionar jogo. Resultado esperado: **OK: carregador 3/3 ciclos**. [Instruções e limites](docs/LOADER_PROBE.md). A validação no hardware desta etapa ainda está pendente.
+Pressione **X** sem selecionar jogo. Resultado esperado: **OK: carregador 3/3 ciclos**. [Instruções e limites](docs/LOADER_PROBE.md). A prova X foi confirmada no console: três ciclos completos aprovados.
+
+## Preparar módulos do NUP
+
+Selecione o arquivo NUP ou sua pasta splitada e pressione **Y**. Para o Pokopia testado, espere **OK: programa preparado (3 módulos)**. Não é necessário refazer 4/4 ou ativar kaiHEN. Esta etapa ainda não inicia o jogo. [Funcionamento e limites](docs/PROGRAM_PREPARATION.md).
 
 ## Documentação
 
+- [Preparação de módulos](docs/PROGRAM_PREPARATION.md)
 - [Prova de carregamento](docs/LOADER_PROBE.md)
 - [Arquitetura e limites](docs/ARCHITECTURE.md)
 - [Roadmap e critérios de avanço](docs/ROADMAP.md)
@@ -50,5 +55,7 @@ Mantido por **David Kalil Braga (@davidkalil10)**. [Apoiar o desenvolvimento](ht
 - [a55uka/nup](https://github.com/a55uka/nup): formato de container NUP.
 - [ouncebrew/kaihen](https://github.com/ouncebrew/kaihen) e [ounce-devkit](https://github.com/ouncebrew/ounce-devkit): ambiente homebrew, carregador e SDK; devkitPro: compilador e ferramentas.
 - Eden-NX2 e os ports anteriores de David: documentação de toolchain, memória e ciclo de vida. Nenhum código de emulação do Eden foi copiado.
+
+Zstandard v1.5.7 é incluído somente como decoder, sob BSD-3-Clause; seus avisos estão em `third_party/zstd`.
 
 O código próprio deste projeto é MIT. A documentação de referência preserva sua autoria; dependências e futuras importações mantêm suas próprias licenças. Use backups próprios. Compatibilidade de um jogo no relinker de PC não garante execução nesta homebrew.

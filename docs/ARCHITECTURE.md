@@ -4,7 +4,7 @@
 
 `Input (arquivo ou partes) -> índice NUP -> seleção base/update -> preparação RomFS e módulos -> runtime -> kaiHEN ldr:ro -> jogo`
 
-Implementado: Input, inventário de pacotes com TOC verificada e a prova isolada de um módulo sintético (docs/LOADER_PROBE.md), ainda pendente de teste no console. Não implementado: seleção de updates, descompressão de payload, RomFS, preparação NSO, runtime e início do jogo.
+Implementado: Input, inventário com TOC verificada, prova sintética confirmada no console, seleção do programa de maior versão e preparação de imagens NSO LZ4 com verificação de hashes (docs/PROGRAM_PREPARATION.md). Não implementado: ZBIC, RomFS, integração das imagens ao runtime e início do jogo.
 
 ## Entrada única e splitada
 

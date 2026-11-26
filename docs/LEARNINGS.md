@@ -30,3 +30,7 @@ Esses sinais não provam defeito no split. O caminho do Eden emula/traduz gráfi
 ## Segunda cópia do Pokopia
 
 A pasta renomeada e recopiada apresentou NUP v1, primeiros 4 KiB iguais ao PC e tamanhos corretos. Inspeção confirmada no console: 2 partes, 2 pacotes, 41 arquivos e TOC SHA-256 válida. A origem da divergência da cópia anterior não foi determinada; não atribuir a uma falha específica do Explorador sem evidência adicional.
+
+## Preparação do programa
+
+A prova sintética do loader foi confirmada no hardware. Na etapa seguinte, a preparação C++ do Pokopia splitado escolheu a atualização correta e produziu imagens idênticas às do builder PC para main/subsdk0/sdk, com hashes NSO e segmentos conferidos. Isso valida a transformação dos dados no host; não prova ainda imports/relocações ou execução do jogo no console.

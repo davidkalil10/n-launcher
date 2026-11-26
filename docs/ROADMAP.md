@@ -15,8 +15,10 @@
 - [ ] Descrever as interfaces do runtime upstream e o que hoje depende de código gerado.
 - [ ] Importar o runtime com revisão de licença e hashes, isolando adaptações.
 - [x] Implementar prova sintética de carga, permissões, chamadas, dados/BSS, descarga e recarga em três ciclos.
-- [ ] Confirmar a prova sintética no console e o retorno ao hbmenu; testes de host não provam mapeamento real.
-- [ ] Preparar NSO e thunks/tabelas no console; validar módulos inteiros, TLS e imports.
+- [x] Prova X confirmada no console: 3/3 ciclos aprovados.
+- [x] Preparar NSO LZ4 a partir do NUP completo/splitado, verificar hashes e imagens contra o builder PC.
+- [ ] Confirmar Y no console para o Pokopia (3 módulos).
+- [ ] Integrar imagens/tabelas ao runtime e gerar thunks; resolver imports, relocações e TLS.
 - [ ] Reproduzir a inicialização do Pokopia usando o mesmo NUP e perfil de memória do teste PC.
 - [ ] Verificar separadamente imagem, áudio, entradas, saves e retorno ao hbmenu.
 

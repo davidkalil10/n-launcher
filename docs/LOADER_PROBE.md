@@ -8,6 +8,10 @@ Resultado esperado: **OK: carregador 3/3 ciclos**. Depois, **+** volta ao hbmenu
 
 Registro: `/switch/nx2-link/logs/loader-probe.log`. Cada fase é gravada e fechada antes da próxima chamada importante, para preservar o último ponto alcançado. O registro contém apenas dados técnicos do teste; nenhum módulo de jogo é lido.
 
+## Validação no console
+
+A mensagem 3/3 foi confirmada no console em 2026-11-26, usando a ativação existente. Isso valida a prova sintética, sem estender automaticamente a conclusão a módulos de jogos.
+
 ## O que a prova faz
 
 Um módulo próprio de 16 KiB é montado durante a build a partir de `fixtures/module.S`, sem imports, chamadas de sistema ou código de jogos. A NRO contém seus bytes como dados. Ao pressionar X, aloca páginas de heap alinhadas a 4 KiB para a imagem e uma página de BSS zerada.

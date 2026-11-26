@@ -1,4 +1,5 @@
 #include "nx2link/input.hpp"
+#include "nx2link/crypto.hpp"
 #include <algorithm>
 #include <array>
 #include <cstring>
@@ -26,7 +27,7 @@ uint64_t le(const uint8_t* p, unsigned n) {
     uint64_t v=0; for(unsigned i=0;i<n;++i) v|=uint64_t(p[i])<<(8*i); return v;
 }
 uint32_t rotate(uint32_t a,unsigned n) { return (a>>n)|(a<<(32-n)); }
-std::array<uint8_t,32> sha256(const std::vector<uint8_t>& input) {
+std::array<uint8_t,32> hash_impl(const uint8_t* input,size_t size) {
     static constexpr uint32_t k[]={
     0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
     0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
@@ -37,13 +38,13 @@ std::array<uint8_t,32> sha256(const std::vector<uint8_t>& input) {
     0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
     0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2};
     std::array<uint32_t,8> h={0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19};
-    const uint64_t blocks=(input.size()+9+63)/64;
+    const uint64_t blocks=(size+9+63)/64;
     for(uint64_t block=0;block<blocks;++block) {
         uint32_t w[64]={};
         for(unsigned i=0;i<64;++i) {
             const uint64_t pos=block*64+i;
-            uint8_t b=pos<input.size()?input[size_t(pos)]:(pos==input.size()?0x80:0);
-            if(pos>=blocks*64-8) b=uint8_t((uint64_t(input.size())*8)>>(8*(blocks*64-1-pos)));
+            uint8_t b=pos<size?input[size_t(pos)]:(pos==size?0x80:0);
+            if(pos>=blocks*64-8) b=uint8_t((uint64_t(size)*8)>>(8*(blocks*64-1-pos)));
             w[i/4]|=uint32_t(b)<<(24-8*(i%4));
         }
         for(unsigned i=16;i<64;++i) {
@@ -63,6 +64,8 @@ std::array<uint8_t,32> sha256(const std::vector<uint8_t>& input) {
     return out;
 }
 }
+
+std::array<uint8_t,32> digest256(const uint8_t* data,size_t size){return hash_impl(data,size);}
 
 Input::Input(const fs::path& source) {
     std::map<uint64_t,fs::path> ordered;
@@ -129,7 +132,7 @@ Inventory inspect(const Input& in) {
     range(at,length,in.size());
     if(at<0x80 || length<0x30 || length>64*1024*1024) fail("Invalid/unsupported TOC size (limit: 64 MiB)");
     const auto toc=in.read(at,size_t(length));
-    const auto digest=sha256(toc);
+    const auto digest=hash_impl(toc.data(),toc.size());
     if(std::memcmp(digest.data(),h.data()+0x18,32)) fail("TOC SHA-256 mismatch");
     if(std::memcmp(toc.data(),"TOC\1",4)) fail("Invalid TOC signature");
     const auto count=le(toc.data()+4,4), dirs=le(toc.data()+8,8), files=le(toc.data()+16,8);

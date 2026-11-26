@@ -1,0 +1,1 @@
+NSO/module layout and loader behavior reference: Olmectron/nx2-relink v0.1.11, c72a1eca45ab6bbfbbb7eba8a8e56447db53562d. The original MIT notice is preserved here. The game runtime has not yet been imported.

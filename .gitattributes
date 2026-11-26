@@ -6,3 +6,4 @@
 *.yml text eol=lf
 *.ps1 text eol=crlf
 docs/reference/*.md whitespace=-blank-at-eol,-blank-at-eof
+third_party/** text eol=lf whitespace=-blank-at-eol,-blank-at-eof

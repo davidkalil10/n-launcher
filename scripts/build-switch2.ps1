@@ -16,8 +16,10 @@ try {
     if($LASTEXITCODE -ne 0){throw 'Fixture image generation failed'}
     python tools/embed_fixture.py build/switch2/fixture.bin build/generated/fixture.hpp
     if($LASTEXITCODE -ne 0){throw 'Fixture layout verification failed'}
-    $flags=@('-std=c++17','-O2','-fPIE','-Wall','-Wextra','-Werror','-mcpu=cortex-a78c+crypto','-mtp=soft','-ftls-model=local-exec','-D__SWITCH__','-D__SWITCH2__','-ffunction-sections','-fdata-sections',"-specs=$sdk/libounce/switch.specs",'-Iinclude','-Ibuild/generated','-isystem',"$sdk/libounce/include",'-Wl,--gc-sections','-Wl,-Map,build/switch2/nx2-link-switch2.map')
-    & "$sdk/devkitA64/bin/aarch64-none-elf-g++.exe" @flags src/input.cpp src/loader_probe.cpp src/switch_main.cpp "-L$sdk/libounce/lib" "-L$sdk/portlibs/switch2/lib" -lkaihen -lnx -o build/switch2/nx2-link-switch2.elf
+    & "$sdk/devkitA64/bin/aarch64-none-elf-gcc.exe" -c -O2 -fPIE -mcpu=cortex-a78c+crypto -mtp=soft -ffunction-sections -fdata-sections -DZSTD_DISABLE_ASM third_party/zstd/zstddeclib.c -o build/switch2/zstd.o
+    if($LASTEXITCODE -ne 0){throw 'Zstd decoder compile failed'}
+    $flags=@('-std=c++17','-O2','-fPIE','-Wall','-Wextra','-Werror','-mcpu=cortex-a78c+crypto','-mtp=soft','-ftls-model=local-exec','-D__SWITCH__','-D__SWITCH2__','-ffunction-sections','-fdata-sections',"-specs=$sdk/libounce/switch.specs",'-Iinclude','-Ibuild/generated','-Ithird_party/zstd','-isystem',"$sdk/libounce/include",'-Wl,--gc-sections','-Wl,-Map,build/switch2/nx2-link-switch2.map')
+    & "$sdk/devkitA64/bin/aarch64-none-elf-g++.exe" @flags src/input.cpp src/program.cpp src/loader_probe.cpp src/switch_main.cpp build/switch2/zstd.o "-L$sdk/libounce/lib" "-L$sdk/portlibs/switch2/lib" -lkaihen -lnx -o build/switch2/nx2-link-switch2.elf
     if($LASTEXITCODE -ne 0){throw 'Switch 2 compile failed'}
     & "$sdk/tools/bin/nacptool.exe" --create 'NX2 Link - Loader Probe' 'David Kalil Braga' $version build/switch2/app.nacp
     if($LASTEXITCODE -ne 0){throw 'NACP creation failed'}

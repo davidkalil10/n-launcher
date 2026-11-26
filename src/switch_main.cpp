@@ -1,5 +1,7 @@
 #include <switch.h>
 #include "nx2link/input.hpp"
+#include "nx2link/loader_probe.hpp"
+#include "nx2link/version.hpp"
 #include <algorithm>
 #include <cstdio>
 #include <cctype>
@@ -16,6 +18,10 @@ int main() {
     size_t selected=0;bool refresh=true;
     while(appletMainLoop()) {
         padUpdate(&pad);auto keys=padGetButtonsDown(&pad);if(keys&HidNpadButton_Plus)break;
+        if(keys&HidNpadButton_X) {
+            std::printf("\nTestando carregador da sessao atual...\n");consoleUpdate(nullptr);
+            try {status=nx2link::run_loader_probe();}catch(const std::exception& e){status=e.what();}
+        }
         if(refresh) {
             entries.clear();selected=0;
             try {
@@ -38,11 +44,11 @@ int main() {
                 status=text;
             } catch(const std::exception& e) {status=std::string("ERRO: ")+e.what();}
         }
-        consoleClear();std::printf("NX2 Link Enhanced 0.0.1 - Input Probe\n\n%s\n\n",directory.string().c_str());
+        consoleClear();std::printf("NX2 Link Enhanced " NX2LINK_VERSION " - Loader Probe\n\n%s\n\n",directory.string().c_str());
         const size_t first=(selected/15)*15;
         for(size_t i=first;i<std::min(first+15,entries.size());++i)
             std::printf("%c %s\n",i==selected?'>':' ',entries[i].filename().string().c_str());
-        std::printf("\nA: abrir/inspecionar | B: voltar | +: sair\n\n%s\n",status.c_str());
+        std::printf("\nA: inspecionar | B: voltar | X: testar carregador | +: sair\n\n%s\n",status.c_str());
         consoleUpdate(nullptr);
     }
     consoleExit(nullptr);return 0;

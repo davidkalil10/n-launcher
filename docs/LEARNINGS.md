@@ -26,3 +26,7 @@ Esses sinais não provam defeito no split. O caminho do Eden emula/traduz gráfi
 - A rejeição pela assinatura não demonstra falha na concatenação das partes. O leitor atual aceita NUP v1; PFS0/NCA exige outro caminho de leitura, não basta tratar o cabeçalho como NUP.
 - Não classificar automaticamente PFS0 como arquivo renomeado ou dump inválido. Informar o formato detectado e os limites do leitor.
 - Para testar a cópia NUP já validada, copiar a pasta splitada local correta preservando 00/01; não juntar partes nem alterar dumps para contornar a detecção.
+
+## Segunda cópia do Pokopia
+
+A pasta renomeada e recopiada apresentou NUP v1, primeiros 4 KiB iguais ao PC e tamanhos corretos. Inspeção confirmada no console: 2 partes, 2 pacotes, 41 arquivos e TOC SHA-256 válida. A origem da divergência da cópia anterior não foi determinada; não atribuir a uma falha específica do Explorador sem evidência adicional.

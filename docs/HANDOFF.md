@@ -6,7 +6,7 @@ Preparar/relinkar backups NUP no próprio Switch 2, inclusive pastas .nup com pa
 
 ## Implementado
 
-Leitor C++ read-only, inventário NUP v1, validação SHA-256 da TOC, CLI de diagnóstico, fixtures sintéticas e frontend console para Switch 2. Scripts de build e verificador estrito do pacote. Ainda sem runtime, execução de jogo, extração ou geração RomFS.
+Leitor C++ read-only, inventário NUP v1, validação SHA-256 da TOC, CLI de diagnóstico, fixtures sintéticas e frontend console para Switch 2. Scripts de build e verificador estrito do pacote. A versão 0.0.2 também implementa o botão X: prova de módulo sintético via sessão ldr:ro já ativa, com três ciclos e registro persistente. Ainda sem runtime de jogo, execução de jogo, extração ou geração RomFS.
 
 ## Fontes úteis
 
@@ -29,3 +29,7 @@ Não editar o Eden, builder Windows, dumps ou saves. Não enviar jogos/chaves/sa
 ## Último diagnóstico
 
 Elliot Demo passou na inspeção no console. A pasta Pokopia no SD e a pasta local têm nomes parecidos, mas cabeçalhos e tamanhos diferentes: SD = PFS0/NCA; local = NUP v1 válido. Não reescrever o leitor splitado por esse motivo e não presumir que o conteúdo do SD corresponde ao arquivo que abriu no builder PC. Ver docs/LEARNINGS.md.
+
+## Estado atual do marco de carregamento
+
+Pokopia NUP v1 splitado e Elliot passaram na inspeção no console. Confirmar agora a prova X de 0.0.2 no kaiHEN existente, sem reativá-lo. Ver docs/LOADER_PROBE.md. O módulo sintético não tem imports/TLS/SVC; foi gerado pelo assembler e não é o runtime de jogo. Não avançar a execução do Pokopia com base apenas na build aprovada.

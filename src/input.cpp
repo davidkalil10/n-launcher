@@ -124,7 +124,7 @@ std::vector<uint8_t> Input::read(uint64_t at,size_t bytes) const {
 
 Inventory inspect(const Input& in) {
     const auto h=in.read(0,0x80);
-    if(std::memcmp(h.data(),"NUP\1",4)) fail("Not a supported NUP v1 container (a renamed NSP is not a NUP)");
+    if(std::memcmp(h.data(),"NUP\1",4)) fail("Unsupported container signature: NUP v1 expected; PFS0/NCA is a different format");
     const auto at=le(h.data()+8,8), length=le(h.data()+16,8);
     range(at,length,in.size());
     if(at<0x80 || length<0x30 || length>64*1024*1024) fail("Invalid/unsupported TOC size (limit: 64 MiB)");

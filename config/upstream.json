@@ -5,5 +5,16 @@
   "license": "MIT",
   "runtimeImported": false,
   "runtimeCompatibilityBaseline": "kaiHEN 20261117.1",
-  "notes": "Pinned research baseline. The probe does not yet load or run game modules."
+  "notes": "Synthetic loader probe uses the existing inherited ldr:ro session. Game runtime not imported.",
+  "kaihenProtocolSource": {
+    "commit": "3695f364f9270686aa72cc39627bb1281752b2d3",
+    "repository": "https://github.com/ouncebrew/kaihen",
+    "paths": [
+      "ro/source/image.cpp",
+      "ro/source/session.cpp",
+      "ro/source/wire.cpp",
+      "ro/source/mapping.cpp"
+    ],
+    "use": "Protocol/layout research only; no GPL implementation copied"
+  }
 }

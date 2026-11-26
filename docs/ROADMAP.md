@@ -8,13 +8,14 @@
 - [x] Fixtures sintéticas: partes faltantes/vazias, tamanho, hash, limites.
 - [x] Fonte do NRO de diagnóstico e build com verificação de startup/link map.
 - [x] Elliot Demo inspecionado no console (1 pacote, 49 arquivos).
-- [ ] Confirmar leitura da cópia NUP v1 do Pokopia splitado no console; a pasta examinada no SD era outro container PFS0/NCA.
+- [x] Pokopia NUP v1 splitado confirmado no console após nova cópia: 2 partes, 2 pacotes, 41 arquivos.
 
 ## M1 — Prova do carregador (decisão de viabilidade)
 
 - [ ] Descrever as interfaces do runtime upstream e o que hoje depende de código gerado.
 - [ ] Importar o runtime com revisão de licença e hashes, isolando adaptações.
-- [ ] Carregar um módulo sintético pelo kaiHEN e retornar sem vazamento.
+- [x] Implementar prova sintética de carga, permissões, chamadas, dados/BSS, descarga e recarga em três ciclos.
+- [ ] Confirmar a prova sintética no console e o retorno ao hbmenu; testes de host não provam mapeamento real.
 - [ ] Preparar NSO e thunks/tabelas no console; validar módulos inteiros, TLS e imports.
 - [ ] Reproduzir a inicialização do Pokopia usando o mesmo NUP e perfil de memória do teste PC.
 - [ ] Verificar separadamente imagem, áudio, entradas, saves e retorno ao hbmenu.

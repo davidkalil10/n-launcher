@@ -2,7 +2,7 @@
 
 Homebrew experimental de Switch 2 para preparar e carregar backups NUP diretamente no console. O objetivo é escolher um NUP, preparar os dados uma vez e iniciar o jogo sem depender de um PC para cada jogo.
 
-**Estado atual: prova de leitura, versão 0.0.1. Ainda não relinka, gera RomFS ou executa jogos.** Há um leitor C++ compartilhado entre o diagnóstico de PC e o NRO de teste. O trabalho crítico de carregar o código do jogo continua em pesquisa.
+**Estado atual: prova de leitura e carregador sintético, versão 0.0.2. Ainda não relinka, gera RomFS ou executa jogos.** Há um leitor C++ compartilhado entre o diagnóstico de PC e o NRO de teste. O botão X testa um módulo sintético pela sessão kaiHEN já ativa; o trabalho de carregar o código de jogos continua em pesquisa.
 
 ## Entradas desde a primeira versão
 
@@ -16,9 +16,9 @@ As partes são um único espaço lógico de bytes, com offsets de 64 bits. O lei
 
 1. Copie `dist/nx2-link-switch2.nro` para `/switch/nx2-link/` no SD.
 2. Crie `/switch/nx2-link/input/` e coloque seu NUP, ou a pasta `.nup` completa, dentro. O navegador permite voltar e localizar arquivos em outras pastas do SD, sem precisar duplicá-los.
-3. Abra pelo hbmenu: direcional seleciona, **A** abre/inspeciona, **B** volta, **+** sai. A pasta `.nup` é tratada como jogo, não como pasta para escolher só `00`.
+3. Abra pelo hbmenu: direcional seleciona, **A** abre/inspeciona, **B** volta, **X** testa o carregador sintético, **+** sai. A pasta `.nup` é tratada como jogo, não como pasta para escolher só `00`.
 
-Esta versão apenas lê os arquivos. Não escreve na entrada, nos saves ou na memória interna do console. A demo do Elliot passou na inspeção no console (1 pacote, 49 arquivos). A cópia NUP v1 splitada do Pokopia passou no leitor local; a cópia examinada no SD era outro container, PFS0/NCA, ainda não suportado. Consulte docs/LEARNINGS.md.
+A inspeção apenas lê os arquivos. O teste X escreve seu próprio registro em `/switch/nx2-link/logs/loader-probe.log`; não escreve na entrada, nos saves ou na memória interna. Ele usa a ativação kaiHEN existente, sem reiniciar ou refazer 4/4. A demo do Elliot passou na inspeção no console (1 pacote, 49 arquivos). A cópia NUP v1 splitada do Pokopia passou no leitor local; a cópia examinada no SD era outro container, PFS0/NCA, ainda não suportado. Consulte docs/LEARNINGS.md.
 
 ## Build e testes
 
@@ -28,8 +28,13 @@ Para gerar o NRO: `scripts/build-switch2.ps1 -SdkRoot <devkitpro> -SupportRoot <
 
 O GitHub Actions usa fixtures sintéticas e um SDK público verificado, fixado em `config/windows-sdk.json`. A saída de teste fica em rascunho de release, sem publicação oficial automática. Nenhum jogo é enviado ao CI.
 
+## Teste do carregador
+
+Pressione **X** sem selecionar jogo. Resultado esperado: **OK: carregador 3/3 ciclos**. [Instruções e limites](docs/LOADER_PROBE.md). A validação no hardware desta etapa ainda está pendente.
+
 ## Documentação
 
+- [Prova de carregamento](docs/LOADER_PROBE.md)
 - [Arquitetura e limites](docs/ARCHITECTURE.md)
 - [Roadmap e critérios de avanço](docs/ROADMAP.md)
 - [Decisões](docs/DECISIONS.md)

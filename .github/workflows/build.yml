@@ -1,4 +1,4 @@
-name: Input reader and Switch 2 probe
+name: Reader and kaiHEN loader probe
 on: [push, pull_request, workflow_dispatch]
 permissions:
   contents: read
@@ -12,6 +12,8 @@ jobs:
           mkdir -p build
           g++ -std=c++17 -O2 -Wall -Wextra -Werror -Iinclude src/input.cpp src/cli.cpp -o build/probe
           python3 tests/test_input.py build/probe
+          g++ -std=c++17 -O2 -Wall -Wextra -Werror -Iinclude tests/test_module_lease.cpp -o build/lease-test
+          build/lease-test
   switch2:
     needs: host
     if: github.event_name != 'pull_request'
@@ -52,5 +54,5 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          gh release create "probe-$env:GITHUB_RUN_ID" dist/nx2-link-switch2.nro dist/SHA256SUMS.txt --draft --prerelease --target $env:GITHUB_SHA --title 'Input probe 0.0.1 - test' --notes 'Read-only NUP/split inspection. Does not prepare or launch games. Synthetic host tests and Switch 2 package checks passed; hardware validation pending.'
+          gh release create "probe-$env:GITHUB_RUN_ID" dist/nx2-link-switch2.nro dist/SHA256SUMS.txt --draft --prerelease --target $env:GITHUB_SHA --title "Loader probe - test $env:GITHUB_RUN_ID" --notes 'NUP/split inspection and X: synthetic kaiHEN module load/call/unload. Uses the existing kaiHEN session; does not activate it or run games. Hardware loader validation pending.'
           if($LASTEXITCODE -ne 0){throw 'Draft upload failed'}

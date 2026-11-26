@@ -5,9 +5,7 @@
 
 Nintendo Switch 2 homebrew for preparing and launching NUP backups directly on the console, without building a separate NRO for each game on a PC. The same browser accepts **single-file NUPs** and **split `.nup` folders containing `00`, `01`, …**.
 
-![N Launcher library](docs/images/library.png)
-
-*Preview rendered with a synthetic library. No commercial game data is included.*
+<img src="docs/images/icon.jpg" alt="N Launcher application icon" width="128">
 
 ## Current status
 
@@ -27,17 +25,17 @@ Data from the old `/switch/nx2-link/` directory is migrated to `n-launcher` by r
 
 ## Controls
 
-The current application interface is in Portuguese. The labels below match the controls shown on screen.
+The application interface currently uses Portuguese. All control descriptions below are in English.
 
 | Button | Action |
 |---|---|
-| **− — Pasta** | Choose the folder containing your NUPs. The selection is saved; games do not need to be moved. |
+| **− — Folder** | Choose the folder containing your NUPs. The selection is saved; games do not need to be moved. |
 | **D-pad** | Navigate the library. |
-| **A — Jogar** | Verify and prepare the required data, then start the generic loader. |
-| **Y — Opções** | Open per-game memory settings, prepare without launching, inspect a NUP or view logs. |
-| **X — Recarregar** | Refresh the library. |
-| **R — Atualizações** | Check for and install public N Launcher releases. |
-| **+ — Sair** | Exit to hbmenu. |
+| **A — Play** | Verify and prepare the required data, then start the generic loader. |
+| **Y — Options** | Open per-game memory settings, prepare without launching, inspect a NUP or view logs. |
+| **X — Refresh** | Refresh the library. |
+| **R — Updates** | Check for and install public N Launcher releases. |
+| **+ — Exit** | Exit to hbmenu. |
 
 The main NRO includes the loader. No Python installation, compiler or DLLs are needed on the console. N Launcher uses the existing kaiHEN session; it does not install system titles or modify native console saves.
 
@@ -45,7 +43,7 @@ Self-contained NUPs marked as updates can also be prepared, following the runtim
 
 ## Per-game memory settings
 
-Open **Y → Memória por jogo** to adjust the memory reported to the game and the loader's initial reservation. Use left/right to change values, **A** to save, **X** to restore **Automático** and **B** to cancel. Profiles are keyed by title ID and preserve the other fields in `game.cfg`, including the save slot.
+Open **Y → Per-game memory** to adjust the memory reported to the game and the loader's initial reservation. Use left/right to change values, **A** to save, **X** to restore **Automatic** and **B** to cancel. Profiles are keyed by title ID and preserve the other fields in `game.cfg`, including the save slot.
 
 The default remains **Automatic**, preserving the configuration validated with Pokopia. Reserving more memory for the loader leaves less for the game, while reporting too much memory to a game may prevent it from starting. These settings apply to execution; they do not speed up cache decompression. Preparation uses bounded buffers. See [memory settings and limits](docs/MEMORY_PROFILES.md).
 

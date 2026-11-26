@@ -9,3 +9,7 @@
 - O primeiro teste Windows expôs dependência de DLL e conversão de caminhos com acentos; ambos corrigidos antes de empacotar.
 
 O SHA-256 do NRO acompanha dist/SHA256SUMS.txt (saída de build, não fonte versionado).
+
+## Automação
+
+[GitHub Actions 45751145060](https://github.com/davidkalil10/nx2-link-enhanced/actions/runs/45751145060), commit b47cff5: testes sintéticos no Linux e build/verificação de NRO no Windows aprovados. NRO de teste guardado no rascunho probe-45751145060, sem publicação oficial. SHA-256: `704a339475fdde36dd1519c2fa186adf04b5d3a4e84f4e40835254e9c62f71eb`. Teste no console permanece pendente.

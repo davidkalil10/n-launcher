@@ -15,7 +15,9 @@ int main(int argc,char** argv){
     nlauncher::Menu menu;Canvas canvas;menu.start();
     save(menu,canvas,std::string(argv[2])+"/library.ppm");
     nlauncher::Keys key;key.y=true;menu.update(key);save(menu,canvas,std::string(argv[2])+"/options.ppm");
+    key={};key.a=true;menu.update(key);save(menu,canvas,std::string(argv[2])+"/memory.ppm");
+    key={};key.b=true;menu.update(key);
     key={};key.b=true;menu.update(key);key={};key.minus=true;menu.update(key);save(menu,canvas,std::string(argv[2])+"/folder.ppm");
     menu.report("Preparando o jogo","Conferindo módulos e integridade dos arquivos.\nO NUP original permanece intacto.",true,0.42f);
-    save(menu,canvas,std::string(argv[2])+"/progress.ppm");return 0;
+    save(menu,canvas,std::string(argv[2])+"/progress.ppm");menu.offer_update("0.0.7",20000000);save(menu,canvas,std::string(argv[2])+"/update.ppm");return 0;
 }

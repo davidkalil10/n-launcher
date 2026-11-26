@@ -8,7 +8,7 @@ static std::filesystem::path card;static std::string drive;
 FsFileSystem* fsdevGetDeviceFileSystem(const char*){static FsFileSystem fs;return &fs;}
 u32 fsFsOpenFile(FsFileSystem*,const char* name,int,FsFile* f){
     std::string path=name;
-    auto real=path.find("/switch/nx2-link/content/")==0?card/std::filesystem::u8path(path.substr(1)):std::filesystem::u8path(drive+path);
+    auto real=path.find("/switch/n-launcher/content/")==0?card/std::filesystem::u8path(path.substr(1)):std::filesystem::u8path(drive+path);
 #ifdef _WIN32
     f->file=_wfopen(real.c_str(),L"rb");
 #else

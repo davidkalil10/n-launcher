@@ -14,3 +14,9 @@
 11. **Arquivos grandes de RomFS em cache no SD.** Limiar 64 MiB; partes de 1 GiB; SHA de conteúdo e marcador NLC1. A RAM não deve receber o maior arquivo do jogo inteiro.
 12. **Nenhuma ativação dentro do NRO.** Handoff pelo hbmenu usa kaiHEN herdado; o carregador vem incorporado e é materializado no SD. O teste de execução é separado da comprovação de build.
 13. **Cache de bytes não depende do runtime.** Hash de conteúdo, tamanho e versão do formato identificam dados descomprimidos; não são imagens relinkadas.
+
+## 2026-11-26 — Distribuição, dados e memória
+
+Manter newlib apenas no frontend, após validação completa do Pokopia. Preservar runtime e padrão Automático. Perfis são por Title ID; reserva do loader e memória reportada ao jogo são distintas e não mudam buffers da preparação.
+
+Adotar /switch/n-launcher e migrar por rename, sem duplicar cache. Preservar dados conflitantes. Publicar app e manifesto pelo mesmo pipeline; o atualizador confere TLS, tamanho, SHA, startup e NACP e mantém a versão anterior até confirmação do novo processo. Atualizações do upstream continuam revisões manuais.

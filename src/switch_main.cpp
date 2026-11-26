@@ -13,7 +13,7 @@
 int main() {
     consoleInit(nullptr);
     PadState pad;padConfigureInput(1,HidNpadStyleSet_NpadStandard);padInitializeDefault(&pad);
-    std::filesystem::path directory="sdmc:/switch/nx2-link/input";
+    std::filesystem::path directory="sdmc:/switch/n-launcher/input";
     std::vector<std::filesystem::path> entries;
     std::string status="Inspecao somente leitura. Nao executa jogos nesta etapa.";
     size_t selected=0;bool refresh=true;
@@ -36,8 +36,8 @@ int main() {
         if(keys&HidNpadButton_B && directory!=directory.root_path()){directory=directory.parent_path();refresh=true;}
 
         if(!entries.empty() && (keys&HidNpadButton_Y)) {
-            std::error_code ec;std::filesystem::create_directories("sdmc:/switch/nx2-link/logs",ec);
-            FILE* report_file=std::fopen("sdmc:/switch/nx2-link/logs/program-prepare.log","wb");
+            std::error_code ec;std::filesystem::create_directories("sdmc:/switch/n-launcher/logs",ec);
+            FILE* report_file=std::fopen("sdmc:/switch/n-launcher/logs/program-prepare.log","wb");
             try {
                 std::printf("\nPreparando modulos... aguarde.\n");consoleUpdate(nullptr);
                 nx2link::Input input(entries[selected]);
@@ -45,7 +45,7 @@ int main() {
                     if(report_file){std::fprintf(report_file,"%s\n",line.c_str());std::fflush(report_file);}
                     if(line.rfind("Preparing ",0)==0){std::printf("%s\n",line.c_str());consoleUpdate(nullptr);}
                 });
-                status="OK: programa preparado ("+std::to_string(count)+" modulos).\nHashes conferidos; nenhum jogo executado.\nLog: /switch/nx2-link/logs/program-prepare.log";
+                status="OK: programa preparado ("+std::to_string(count)+" modulos).\nHashes conferidos; nenhum jogo executado.\nLog: /switch/n-launcher/logs/program-prepare.log";
             } catch(const std::exception& e) {
                 status=std::string("ERRO ao preparar: ")+e.what();
                 if(report_file)std::fprintf(report_file,"FAIL: %s\n",e.what());

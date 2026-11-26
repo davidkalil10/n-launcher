@@ -37,7 +37,7 @@ def prepare():
     s=s.replace('    return true;\n}\n\n} // namespace Nup','    return true;\n    } catch (const std::exception& e) { error=e.what(); return false; }\n}\n\n} // namespace Nup')
     (out/n).write_text(s,encoding='utf-8',newline='\n')
     n='menu/source/library.h'
-    for before,after in [('"nx2-flow"','"N Launcher"'),('"/nx2-flow"','"/switch/nx2-link"'),('"/nx2-flow/games"','"/switch/nx2-link/input"'),('"/nx2-flow/covers"','"/switch/nx2-link/covers"'),('"/nx2-flow/cache"','"/switch/nx2-link/cache"'),('"/nx2-flow/menu.cfg"','"/switch/nx2-link/menu.cfg"'),('"/switch/nx2-flow/nx2-flow.nro"','"/switch/nx2-link/nx2-link-switch2.nro"'),('"/switch/nx2-flow/nx2-game.nro"','"/switch/nx2-link/.runtime/n-launcher-game.nro"'),('std::uint64_t size{};','std::uint64_t size{};\n    std::size_t parts{};')]: patch(n,before,after)
+    for before,after in [('"nx2-flow"','"N Launcher"'),('"/nx2-flow"','"/switch/n-launcher"'),('"/nx2-flow/games"','"/switch/n-launcher/input"'),('"/nx2-flow/covers"','"/switch/n-launcher/covers"'),('"/nx2-flow/cache"','"/switch/n-launcher/cache"'),('"/nx2-flow/menu.cfg"','"/switch/n-launcher/menu.cfg"'),('"/switch/nx2-flow/nx2-flow.nro"','"/switch/n-launcher/n-launcher.nro"'),('"/switch/nx2-flow/nx2-game.nro"','"/switch/n-launcher/.runtime/n-launcher-game.nro"'),('std::uint64_t size{};','std::uint64_t size{};\n    std::size_t parts{};')]: patch(n,before,after)
     n='menu/source/library.cpp'
     patch(n,'#include "nup.h"','#include "nup.h"\n#include "nx2link/input.hpp"')
     patch(n,'    ListFolders(games_folder, &files);','    auto folders = ListFolders(games_folder, &files);\n    for (const auto& name: folders) if (EndsWith(name,".nup")) files.push_back(name);')

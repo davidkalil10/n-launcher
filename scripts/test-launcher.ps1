@@ -18,4 +18,10 @@ try {
     if($LASTEXITCODE -ne 0){throw 'Native backend probe build failed'}
     python tests/test_native_backend.py build/host/native-backend.exe
     if($LASTEXITCODE -ne 0){throw 'Native backend tests failed'}
+    & $Compiler -std=c++17 -O2 -static -static-libgcc -static-libstdc++ -Wall -Wextra -Werror -Iinclude src/input.cpp src/update.cpp src/http.cpp src/profile.cpp src/layout.cpp tests/test_app_core.cpp -o build/host/app-core-test.exe
+    if($LASTEXITCODE -ne 0){throw 'App core build failed'}
+    $taskTemp=Join-Path $env:TEMP ('n-launcher-app-core-'+[guid]::NewGuid().ToString('N'))
+    & build/host/app-core-test.exe $taskTemp
+    if($LASTEXITCODE -ne 0){throw 'App core tests failed'}
+
 } finally {$env:PATH=$oldPath;Pop-Location}

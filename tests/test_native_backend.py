@@ -24,7 +24,7 @@ class Native(unittest.TestCase):
     def test_reject_past_end(self):
         path=self.root/'one.nup';blob=nup(b'ab');path.write_bytes(blob);self.call('input',path,len(blob)-1,2,ok=False)
     def test_cached_part_boundary_and_bounds(self):
-        data=bytes(range(256))*10;sha=hashlib.sha256(data).hexdigest();folder=self.root/'switch/nx2-link/content'/sha;folder.mkdir(parents=True)
+        data=bytes(range(256))*10;sha=hashlib.sha256(data).hexdigest();folder=self.root/'switch/n-launcher/content'/sha;folder.mkdir(parents=True)
         for i,at in enumerate(range(0,len(data),1024)):(folder/f'{i:04}.bin').write_bytes(data[at:at+1024])
         (folder/'complete').write_bytes(b'NLC1'+struct.pack('<IQ',1024,len(data))+bytes.fromhex(sha))
         self.assertEqual(self.call('cache',self.root,sha,len(data),1000,80),data[1000:1080]);self.call('cache',self.root,sha,len(data),len(data)-1,2,ok=False)

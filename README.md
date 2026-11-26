@@ -1,74 +1,92 @@
 # N Launcher
 
-Homebrew de Switch 2 para escolher um backup NUP no cartão SD, preparar os dados necessários e iniciar o jogo pelo ambiente kaiHEN já ativo. Aceita **arquivo NUP completo** e **pasta `.nup` com partes `00`, `01`, …** no mesmo fluxo, sem juntar as partes ou compilar um NRO para cada jogo no PC.
+Homebrew de Switch 2 para preparar e abrir backups NUP diretamente no console, sem compilar um port por jogo no PC. Aceita **NUP completo** e **pasta `.nup` com partes `00`, `01`, …** pelo mesmo seletor.
 
-**Versão 0.0.4 — build experimental para validação.** A interface gráfica, o carregador genérico e o cache em blocos estão integrados. A execução de jogos por esta versão ainda precisa de teste no console. As etapas anteriores de leitura, prova do carregador e preparação de módulos do Pokopia foram validadas no hardware; isso não confirma imagem, áudio ou saves do novo carregador.
+**Pokopia splitado foi validado no console com imagem, áudio, controles, salvar e carregar funcionando.** A versão 0.0.6 mantém o alocador da interface que resolveu o fechamento observado na preparação e acrescenta perfis por jogo, atualização pelo console e a pasta `n-launcher`. Os recursos novos têm testes locais e de build; compatibilidade de outros jogos e validação do atualizador no hardware permanecem específicas de cada teste.
 
-![Biblioteca do N Launcher com dados sintéticos](docs/images/library.png)
+![Biblioteca do N Launcher](docs/images/library.png)
 
-*Prévia renderizada com biblioteca fictícia; não representa validação de execução dos jogos.*
+*Prévia do renderer com biblioteca sintética; não contém dados de jogos comerciais.*
 
-> **Investigação 0.0.5:** a abertura do Pokopia em 0.0.4 encerrou durante o preflight de módulos, antes de chamar o jogo. A build de diagnóstico isola o alocador do frontend e preserva registros por etapa, reutilizando o cache existente. A causa e a execução ainda estão em validação; não é uma release estável.
+## Instalar ou atualizar
 
-## Usar no console
+Baixe o ZIP da [release mais recente](https://github.com/davidkalil10/nx2-link-enhanced/releases/latest) e extraia no SD. O aplicativo fica em **`/switch/n-launcher/n-launcher.nro`**. Abra **N Launcher**, sem “Diagnostico”, pelo hbmenu com kaiHEN ativo. Trocar o NRO não exige reiniciar ou reativar kaiHEN.
 
-1. Copie `nx2-link-switch2.nro` para `/switch/nx2-link/` no SD. Esse nome de arquivo foi mantido para compatibilidade; o aplicativo aparece como **N Launcher** no hbmenu.
-2. Abra pelo hbmenu com kaiHEN ativo. A atualização do NRO não exige refazer a ativação; o aplicativo utiliza a sessão existente.
-3. Pressione **−** e escolha a pasta dos jogos. Não é preciso movê-los para uma pasta específica. A escolha fica salva.
-4. Selecione o jogo e pressione **A — Jogar**. A preparação mostra progresso e pode ser cancelada com **B** entre etapas seguras. A primeira preparação pode levar vários minutos.
+Os dados de `/switch/nx2-link/` são movidos para `n-launcher` por renomeação, sem copiar os gigabytes de cache. Se preferir, renomeie a pasta manualmente antes de extrair o ZIP. Configurações, cache e saves existentes são preservados; dados conflitantes nas duas pastas não são sobrescritos. Depois da migração, utilize a nova versão do aplicativo.
 
-**Y — Opções** oferece preparação sem executar, verificação do índice, teste sintético do carregador e registros. **X** atualiza a biblioteca; **+** sai. A pasta `.nup` é um jogo completo para o seletor: não escolha apenas a parte `00`.
+Esta primeira instalação com atualizador é manual. Nas próximas versões, pressione **R — Atualizações**: o aplicativo consulta o GitHub, mostra a versão disponível e permite baixar e instalar. O NRO é conferido antes da troca; a cópia anterior permanece até a nova versão iniciar e confirmar a atualização. [Funcionamento e recuperação](docs/UPDATES.md).
 
-O NRO inclui seu próprio carregador e o grava em uma pasta interna do aplicativo no SD quando necessário. Nenhum compilador, Python ou DLL precisa ser instalado no console. Ele não ativa kaiHEN, não instala jogos no sistema e não altera os saves nativos.
+## Usar
 
-## Espaço no cartão e dados preservados
+- **− Pasta:** escolha onde estão seus NUPs. A seleção fica salva; não precisa mover os jogos.
+- **Direcional:** navegue pela biblioteca.
+- **A Jogar:** verifica/prepara o necessário e inicia o carregador genérico.
+- **Y Opções:** memória por jogo, preparação sem executar, verificação e registros.
+- **X Recarregar:** atualiza a lista da biblioteca.
+- **R Atualizações:** consulta e instala versões públicas do N Launcher.
+- **+ Sair:** volta ao hbmenu.
 
-Arquivos comprimidos de RomFS maiores que 64 MiB são descomprimidos para um cache próprio no SD, em partes de até **1 GiB**, com SHA-256 conferido antes da publicação. Isso permite servir arquivos maiores que a memória disponível ao carregador. O espaço necessário é consultado antes de iniciar a gravação; o cache expandido pode ocupar vários gigabytes além do NUP.
+O arquivo principal inclui o carregador. Não é necessário instalar Python, compilador ou DLLs no console. O aplicativo utiliza a sessão kaiHEN existente; não instala títulos no sistema nem altera saves nativos.
 
-- NUPs e suas partes são somente leitura.
-- Saves do runtime ficam em `/switch/nx2-link/<ID>/save`, separados dos saves do console e de outros projetos. Compatibilidade de saves ainda requer validação nesta versão.
-- `/switch/nx2-link/content/` contém apenas cache de dados expandidos. Uma preparação cancelada pode deixar uma pasta `.partial`, reaproveitada como área de trabalho na próxima tentativa; a descompressão recomeça do início.
-- `/switch/nx2-link/cache/` guarda os metadados e ícones da biblioteca; não é o cache expandido do jogo.
-- Registros da preparação ficam em `/switch/nx2-link/logs/`; registros do jogo ficam na pasta do respectivo ID.
+## Memória por jogo
 
-Cache publicado só é reutilizado quando marcador, tamanho e partes conferem. A reutilização não relê todos os bytes para detectar alterações posteriores no SD. [Formato, recuperação e limites](docs/CACHE.md).
+Em **Y → Memória por jogo**, ajuste a memória informada ao jogo e a reserva inicial do carregador. Use esquerda/direita, **A** para salvar, **X** para restaurar **Automático** e **B** para cancelar. O perfil é identificado pelo ID do título e mantém os demais campos de `game.cfg`, incluindo o slot de save.
 
-## Compilar e verificar
+O padrão continua Automático, preservando o comportamento validado do Pokopia. Reservar mais para o carregador reduz o espaço disponível ao jogo; valores altos de memória do jogo podem impedir sua abertura. Esses perfis são usados na execução e não fazem o cache descomprimir mais rápido. A preparação mantém buffers limitados. [Detalhes e limites](docs/MEMORY_PROFILES.md).
 
-Os requisitos a seguir são somente para desenvolvimento no PC:
+## Dados e espaço no SD
+
+NUPs e partes são somente leitura. Arquivos comprimidos de RomFS maiores que 64 MiB são preparados para um cache no SD em partes de até 1 GiB, com tamanho e SHA-256 conferidos. A primeira preparação pode levar vários minutos e exigir vários gigabytes extras; uma atualização não invalida esse cache quando o conteúdo e o formato permanecem iguais.
+
+```text
+/switch/n-launcher/
+  n-launcher.nro       aplicativo
+  menu.cfg            pasta da biblioteca
+  cache/              metadados e ícones
+  content/            dados expandidos e verificados
+  <ID>/game.cfg       perfil do título
+  <ID>/save/          saves do runtime
+  logs/               registros de preparação e abertura
+  .runtime/           carregador incorporado
+```
+
+Saves do runtime são separados dos saves do console e de outros projetos. Slots adicionais continuam sob a pasta do título. Cache publicado é reutilizado após conferência de marcador e tamanhos; não há rehash integral automático a cada abertura. [Formato e recuperação](docs/CACHE.md).
+
+## Build e releases automáticas
+
+O GitHub Actions testa fixtures sintéticas, gera os dois NROs com o SDK público fixado e verifica startup OUN0 plataforma 2/versão 1, assets e bibliotecas. Cada push gera uma build de teste em rascunho. Tags `v<versão>` ou a opção **publish_release** do workflow na main publicam NRO, ZIP, checksums e o manifesto consumido pelo atualizador, somente após os testes.
+
+Para desenvolvimento local no Windows:
 
 ```powershell
 python -m pip install -r requirements-build.txt
 ./scripts/test-host.ps1 -Compiler <g++.exe>
 ./scripts/test-launcher.ps1 -Compiler <g++.exe>
 ./scripts/build-switch2.ps1 -SdkRoot <devkitpro> -SupportRoot <DLLs-do-toolchain>
+python tools/package_release.py
 ```
 
-A build verifica fontes upstream fixadas, gera o carregador, incorpora-o à interface e valida os dois NROs: startup OUN0 plataforma 2/versão 1, ASET, JPEG, NACP e link map sem bibliotecas Switch 1 incompatíveis. O SDK público está fixado em `config/windows-sdk.json`.
+Nenhum jogo, chave, save ou log do SD é enviado ao CI. [Publicar uma próxima versão](docs/UPDATES.md).
 
-O GitHub Actions utiliza apenas fontes públicas e fixtures sintéticas, sem jogos, chaves ou saves. Builds de teste são guardadas em rascunhos, sem publicação oficial automática. `tools/build_gui.py --preview --compiler <g++>` renderiza a interface com uma biblioteca fictícia e testa suas ações.
+## Documentação
 
-## Arquitetura e continuidade
-
-- [Arquitetura](docs/ARCHITECTURE.md)
-- [Cache em blocos](docs/CACHE.md)
-- [Interface gráfica](docs/INTERFACE.md)
-- [Roadmap e validação](docs/ROADMAP.md)
-- [Decisões](docs/DECISIONS.md) e [aprendizados](docs/LEARNINGS.md)
-- [Handoff técnico](docs/HANDOFF.md)
-- [Prova sintética](docs/LOADER_PROBE.md) e [preparação de módulos](docs/PROGRAM_PREPARATION.md)
+- [Atualização, releases e recuperação](docs/UPDATES.md)
+- [Perfis de memória](docs/MEMORY_PROFILES.md)
+- [Arquitetura](docs/ARCHITECTURE.md) e [cache](docs/CACHE.md)
+- [Interface](docs/INTERFACE.md), [roadmap](docs/ROADMAP.md) e [validação](docs/VALIDATION.md)
+- [Decisões](docs/DECISIONS.md), [aprendizados](docs/LEARNINGS.md) e [continuidade](docs/HANDOFF.md)
 
 ## Créditos e licenças
 
 Mantido por **David Kalil Braga (@davidkalil10)**. [Apoiar o desenvolvimento](https://ko-fi.com/davidkalil10).
 
-- [Olmectron/nx2-flow](https://github.com/Olmectron/nx2-flow): carregador genérico 0.1.3, MIT; componentes gráficos, metadados e imagens do menu 0.2.2, GPL-2.0-or-later. Revisão e hashes em `config/flow.json`. As adaptações são geradas separadamente da cópia original.
-- [Olmectron/nx2-relink](https://github.com/Olmectron/nx2-relink) e [nx-relink](https://github.com/Olmectron/nx-relink): runtime e relinker MIT. A referência 0.1.12 com correção de áudio está preservada em `config/upstream.json`; a execução usa o runtime genérico do nx2-flow.
-- [Toronja](https://github.com/Olmectron/toronja), Azahar Emulator Project e PalindromicBreadLoaf: origem dos componentes gráficos reutilizados pelo nx2-flow; avisos GPL preservados nos arquivos.
+- [Olmectron/nx2-flow](https://github.com/Olmectron/nx2-flow): loader genérico 0.1.3, MIT; componentes do menu 0.2.2, GPL-2.0-or-later. Revisão e hashes em `config/flow.json`; adaptações geradas separadamente.
+- [nx2-relink](https://github.com/Olmectron/nx2-relink) e [nx-relink](https://github.com/Olmectron/nx-relink): runtime e relinker MIT; referência 0.1.12 com a correção de áudio preservada em `config/upstream.json`.
+- [Toronja](https://github.com/Olmectron/toronja), Azahar Emulator Project e PalindromicBreadLoaf: origem dos componentes gráficos; avisos GPL preservados.
 - [a55uka/nup](https://github.com/a55uka/nup): formato NUP.
-- [ouncebrew/kaihen](https://github.com/ouncebrew/kaihen), [ounce-devkit](https://github.com/ouncebrew/ounce-devkit) e devkitPro: ambiente homebrew, serviço de carregamento, SDK e ferramentas.
+- [kaiHEN](https://github.com/ouncebrew/kaihen), [ounce-devkit](https://github.com/ouncebrew/ounce-devkit), [libounce](https://github.com/ouncebrew/libounce) e devkitPro: ambiente, carregador, SDK, alocadores e ferramentas. O HTTPS usa o serviço TLS nativo do console.
 - [Zstandard](https://github.com/facebook/zstd): decoder 1.5.7, BSD-3-Clause.
-- [Noto Sans](https://github.com/google/fonts/tree/main/ofl/notosans): fonte da interface, SIL Open Font License 1.1. Pillow é utilizado apenas na geração de fontes, ícones e prévias durante a build.
-- Eden-NX2 e os ports anteriores de David: referências de toolchain e ciclo de vida. Nenhum código de emulação do Eden foi copiado.
+- [Noto Sans](https://github.com/google/fonts/tree/main/ofl/notosans): fonte, SIL Open Font License 1.1. Pillow é usado somente na build.
+- Eden-NX2 e ports anteriores de David: referências de toolchain e ciclo de vida; nenhum código de emulação do Eden foi copiado.
 
-O núcleo próprio de leitura/preparação/cache e o runtime MIT mantêm suas licenças permissivas. A interface gráfica e a aplicação que a incorpora são distribuídas sob **GPL-2.0-or-later**, com as fontes correspondentes neste repositório. As licenças completas e os avisos das dependências estão em `third_party/`. Use backups próprios; compatibilidade no relinker de PC não garante compatibilidade nesta homebrew.
+O núcleo próprio e o runtime MIT mantêm suas licenças permissivas. A aplicação gráfica combinada é GPL-2.0-or-later, com fontes correspondentes neste repositório. Avisos completos estão em `third_party/` e acompanham o ZIP. Use backups próprios; a validação de um título não garante compatibilidade geral.

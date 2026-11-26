@@ -42,3 +42,9 @@ O loader 0.1.3 já recebe um caminho NUP e prepara os descritores dinamicamente.
 O maior arquivo comprimido do Pokopia expande para cerca de 2,56 GB, além da área de até 2 GiB configurável para o loader. Adotar apenas o loader sem mudar sua política de descompressão não resolve esse caso. Cache no SD evita a alocação integral; ainda é preciso medir sua execução no hardware.
 
 A fonte baked original do menu não cobre corretamente todos os acentos em português. Noto Sans OFL foi incluída e gerada para o mesmo renderer. No Windows, opendir/stat C podem interpretar UTF-8 como ANSI; o catálogo foi adaptado para filesystem com conversão UTF-8 explícita. Fixtures com Café e NUP dividido cobrem esse caso.
+
+## 2026-11-26 — Validação e atualização
+
+A troca do alocador do frontend resolveu o fechamento observado e permitiu jogar, ouvir, controlar, salvar e carregar Pokopia. A correlação delimita uma solução prática, sem provar falha geral do SDK. Reservar mais memória não substitui essa correção.
+
+Atualizar NRO não exige reativar kaiHEN. Renomear dados no mesmo SD evita recópia de gigabytes, mas referências internas e configurações também precisam acompanhar o nome. Testes locais de updater não comprovam TLS ou comportamento de energia no console.

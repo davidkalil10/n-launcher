@@ -7,7 +7,7 @@ O loader genérico upstream mantém um arquivo comprimido inteiro na RAM após d
 ## Layout versão 1
 
 ```text
-/switch/nx2-link/content/<sha256>/
+/switch/n-launcher/content/<sha256>/
   0000.bin
   0001.bin
   ...

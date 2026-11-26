@@ -14,8 +14,8 @@ namespace {
 bool blocked=false;
 void log(const char* format,...) {
     std::error_code ec;
-    std::filesystem::create_directories("sdmc:/switch/nx2-link/logs",ec);
-    FILE* f=std::fopen("sdmc:/switch/nx2-link/logs/loader-probe.log","ab");
+    std::filesystem::create_directories("sdmc:/switch/n-launcher/logs",ec);
+    FILE* f=std::fopen("sdmc:/switch/n-launcher/logs/loader-probe.log","ab");
     if(!f)return;
     va_list args;va_start(args,format);std::vfprintf(f,format,args);va_end(args);
     std::fputc('\n',f);std::fclose(f);
@@ -42,7 +42,7 @@ bool permissions(uint64_t base) {
     return true;
 }
 std::string failed(const char* phase,u32 rc) {
-    char text[240];std::snprintf(text,sizeof(text),"FALHOU: %s (0x%08x).\nDetalhes: /switch/nx2-link/logs/loader-probe.log",phase,rc);
+    char text[240];std::snprintf(text,sizeof(text),"FALHOU: %s (0x%08x).\nDetalhes: /switch/n-launcher/logs/loader-probe.log",phase,rc);
     log("FAIL %s rc=%08x",phase,rc);return text;
 }
 }
@@ -92,6 +92,6 @@ std::string run_loader_probe() {
         log("cycle %u: PASS; heap backing released after scope",cycle+1);
     }
     log("PASS 3/3 load, permissions, calls, data/BSS, unload and reload");
-    return "OK: carregador 3/3 ciclos.\nCarregou, executou e descarregou o modulo de teste.\nDados e BSS conferidos. Nenhum jogo foi executado.\nLog: /switch/nx2-link/logs/loader-probe.log";
+    return "OK: carregador 3/3 ciclos.\nCarregou, executou e descarregou o modulo de teste.\nDados e BSS conferidos. Nenhum jogo foi executado.\nLog: /switch/n-launcher/logs/loader-probe.log";
 }
 }

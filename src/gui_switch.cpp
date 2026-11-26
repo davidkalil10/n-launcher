@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #include <switch.h>
 #include "gui.hpp"
+#include "nx2link/update.hpp"
+#include "nx2link/http.hpp"
+#include "nx2link/layout.hpp"
+#include "nx2link/version.hpp"
 #include "launch_trace.hpp"
 #include "nx2link/input.hpp"
 #include "nx2link/program.hpp"
@@ -20,9 +24,9 @@ namespace {
 void install_runtime(){
     nlauncher::launch_trace("runtime.install.begin");
     namespace fs=std::filesystem;
-    fs::create_directories("sdmc:/switch/nx2-link/.runtime");
+    fs::create_directories("sdmc:/switch/n-launcher/.runtime");
     nlauncher::launch_trace("runtime.directory.ready");
-    const fs::path final="sdmc:/switch/nx2-link/.runtime/n-launcher-game.nro",temp="sdmc:/switch/nx2-link/.runtime/n-launcher-game.nro.tmp",old="sdmc:/switch/nx2-link/.runtime/n-launcher-game.nro.previous";
+    const fs::path final="sdmc:/switch/n-launcher/.runtime/n-launcher-game.nro",temp="sdmc:/switch/n-launcher/.runtime/n-launcher-game.nro.tmp",old="sdmc:/switch/n-launcher/.runtime/n-launcher-game.nro.previous";
     auto size=static_cast<size_t>(reinterpret_cast<uintptr_t>(nl_runtime_end)-reinterpret_cast<uintptr_t>(nl_runtime_begin));
     nlauncher::launch_trace("runtime.embedded.ready",std::to_string(size));
     {std::error_code ec;if(fs::file_size(final,ec)==size&&!ec){std::ifstream in(final,std::ios::binary);std::vector<uint8_t> existing(size);in.read(reinterpret_cast<char*>(existing.data()),std::streamsize(size));if(in&&nx2link::digest256(existing.data(),existing.size())==nx2link::digest256(nl_runtime_begin,size))return;}}
@@ -37,6 +41,7 @@ void install_runtime(){
 struct Job {
     Thread thread{};std::mutex lock;std::atomic<bool> done{},cancel{};
     nlauncher::Request request;std::string message,result;bool success{};std::atomic<float> fraction{-1};
+    nx2link::UpdateManifest manifest;std::filesystem::path executable;bool newer{};
     void status(std::string s){std::lock_guard<std::mutex> guard(lock);message=std::move(s);}
 };
 void work(void* arg){
@@ -45,9 +50,14 @@ void work(void* arg){
     try{
         const bool launching=job.request.action==nlauncher::Action::Launch;
         if(launching)nlauncher::launch_trace("worker.started");
-        std::filesystem::create_directories("sdmc:/switch/nx2-link/logs");
-        log=std::fopen("sdmc:/switch/nx2-link/logs/menu-operation.log","wb");
-        if(job.request.action==nlauncher::Action::Probe){job.status("Testando o carregador da sessão ativa…");job.result=nx2link::run_loader_probe();}
+        std::filesystem::create_directories("sdmc:/switch/n-launcher/logs");
+        log=std::fopen("sdmc:/switch/n-launcher/logs/menu-operation.log","wb");
+        auto fetch=[&](const std::string& url,const nx2link::UpdateSink& sink,uint64_t limit){nx2link::fetch_update_https(url,[&](const uint8_t* bytes,size_t n){if(job.cancel.load())throw std::runtime_error("Atualização cancelada; aplicativo atual preservado");sink(bytes,n);},limit);};
+        if(job.request.action==nlauncher::Action::CheckUpdate){
+            job.status("Consultando a versão pública no GitHub…");job.manifest=nx2link::check_update(fetch);job.newer=nx2link::version_newer(job.manifest.version,NX2LINK_VERSION);job.result="Você já usa a versão mais recente: " NX2LINK_VERSION;
+        }else if(job.request.action==nlauncher::Action::InstallUpdate){
+            nx2link::install_update(job.manifest,NX2LINK_VERSION,job.executable,fetch,[&](const std::string& step,double fraction){if(job.cancel.load())throw std::runtime_error("Atualização cancelada; aplicativo atual preservado");job.status(step);job.fraction.store(float(fraction));});job.result="Atualização verificada e instalada. Reabra o aplicativo.";
+        }else if(job.request.action==nlauncher::Action::Probe){job.status("Testando o carregador da sessão ativa…");job.result=nx2link::run_loader_probe();}
         else{
             nx2link::Input input{std::filesystem::u8path(Flow::OnCard(job.request.path))};
             if(job.request.action==nlauncher::Action::Prepare||job.request.action==nlauncher::Action::Launch){
@@ -60,7 +70,7 @@ void work(void* arg){
                 });
                 if(launching)nlauncher::launch_trace("program.ready");
                 if(launching)nlauncher::launch_trace("cache.begin");
-                auto cached=nx2link::prepare_cache(input,"sdmc:/switch/nx2-link/content",[&](const std::string& message,double value){
+                auto cached=nx2link::prepare_cache(input,"sdmc:/switch/n-launcher/content",[&](const std::string& message,double value){
                     if(job.cancel.load())throw std::runtime_error("Preparação cancelada. O NUP original foi preservado.");
                     job.status(message);job.fraction.store(float(value));
                 });
@@ -82,12 +92,18 @@ int main(int argc,char** argv){
     using namespace nlauncher;
     padConfigureInput(1,HidNpadStyleSet_NpadStandard);PadState pad;padInitializeDefault(&pad);
     Framebuffer fb{};if(R_FAILED(framebufferCreate(&fb,nwindowGetDefault(),1280,720,PIXEL_FORMAT_RGBA_8888,2)))return 1;framebufferMakeLinear(&fb);
-    Flow::SetCardRoot("sdmc:");auto canvas=std::make_unique<SwitchFrontend::Ui::Canvas>();Menu menu;menu.start();std::unique_ptr<Job> job;
+    Flow::SetCardRoot("sdmc:");auto canvas=std::make_unique<SwitchFrontend::Ui::Canvas>();Menu menu;std::unique_ptr<Job> job;
     std::string menu_path=argc>0&&argv&&argv[0]?argv[0]:Flow::OnCard(Flow::kMenuNro);
+    bool startup_error=false;
+    try{auto migration=nx2link::migrate_layout("sdmc:/",menu_path);menu_path=migration.executable;nx2link::confirm_update(std::filesystem::u8path(menu_path),NX2LINK_VERSION);menu.start();}
+    catch(const std::exception& e){startup_error=true;menu.report("Dados preservados",std::string(e.what())+". Feche o aplicativo para organizar as pastas.");}
+    nx2link::UpdateManifest pending_update;
     bool leave=false;
     while(appletMainLoop()){
         padUpdate(&pad);auto bits=padGetButtonsDown(&pad);Keys k;
         k.a=bits&HidNpadButton_A;k.b=bits&HidNpadButton_B;k.x=bits&HidNpadButton_X;k.y=bits&HidNpadButton_Y;k.plus=bits&HidNpadButton_Plus;k.minus=bits&HidNpadButton_Minus;
+        k.r=bits&HidNpadButton_R;
+        if(startup_error){if(k.b||k.plus)break;menu.draw(*canvas);present(fb,*canvas);continue;}
         k.up=bits&HidNpadButton_AnyUp;k.down=bits&HidNpadButton_AnyDown;k.left=bits&HidNpadButton_AnyLeft;k.right=bits&HidNpadButton_AnyRight;
         if(job){
             if(k.b)job->cancel.store(true);
@@ -96,21 +112,28 @@ int main(int argc,char** argv){
                 if(job->success&&job->cancel.load()&&job->request.action==Action::Launch){job->success=false;job->result="Preparação cancelada antes de iniciar o jogo. Cache verificado preservado.";}
                 if(job->success&&job->request.action==Action::Launch){
                     const auto loader=Flow::OnCard(Flow::kGameNro);
-                    const std::string args="\""+loader+"\" \""+Flow::OnCard(job->request.path)+"\" \"menu="+menu_path+"\"";
+                    const std::string args=nx2link::launch_arguments(loader,Flow::OnCard(job->request.path),menu_path,job->request.memory.loader_mb);
                     launch_trace("handoff.begin",loader);
                     const auto next_rc=envSetNextLoad(loader.c_str(),args.c_str());
                     launch_trace("handoff.result",std::to_string(next_rc));
                     if(R_SUCCEEDED(next_rc))leave=true;
                     else{job->success=false;job->result="O hbmenu não aceitou iniciar o carregador. Consulte os registros.";}
                 }
-                menu.finish_job(job->success?"Verificação concluída":"Operação interrompida",job->result+"\nRegistro: /switch/nx2-link/logs/");job.reset();
-            }else{std::lock_guard<std::mutex> guard(job->lock);menu.report("Preparando e verificando",job->message,true,job->fraction.load());}
+                if(job->success&&job->request.action==Action::CheckUpdate&&job->newer){pending_update=job->manifest;menu.offer_update(pending_update.version,pending_update.size);}
+                else if(job->success&&job->request.action==Action::InstallUpdate)menu.offer_restart();
+                else menu.finish_job(job->success?"Operação concluída":"Operação interrompida",job->result+"\nRegistro: /switch/n-launcher/logs/");
+                job.reset();
+            }else{std::lock_guard<std::mutex> guard(job->lock);menu.report(job->request.action==Action::CheckUpdate||job->request.action==Action::InstallUpdate?"Atualizações":"Preparando e verificando",job->message,true,job->fraction.load());}
         }
         if(leave)break;
         auto req=menu.update(k);
         if(req.action==Action::Exit)break;
-        if(req.action==Action::Logs){
-            std::ifstream in("sdmc:/switch/nx2-link/logs/menu-operation.log",std::ios::binary);std::string tail;
+        if(req.action==Action::Restart){
+            const std::string args="\""+menu_path+"\"";
+            if(R_SUCCEEDED(envSetNextLoad(menu_path.c_str(),args.c_str()))){leave=true;break;}
+            menu.offer_restart();
+        }else if(req.action==Action::Logs){
+            std::ifstream in("sdmc:/switch/n-launcher/logs/menu-operation.log",std::ios::binary);std::string tail;
             if(in){in.seekg(0,std::ios::end);std::streamoff bytes=in.tellg();in.seekg(bytes>8192?bytes-8192:0);tail.assign(std::istreambuf_iterator<char>(in),{});}
             menu.report("Última operação",tail.empty()?"Nenhum registro disponível ainda.":tail);
         }else if(req.action==Action::Launch&&(!envHasNextLoad()||smGetServiceOverride(smEncodeName("ldr:ro"))==INVALID_HANDLE)){
@@ -118,7 +141,7 @@ int main(int argc,char** argv){
         }else if(req.action==Action::Launch&&!begin_launch_trace(Flow::OnCard(req.path))){
             menu.report("Não foi possível iniciar","Não foi possível preservar o registro de abertura no SD. Confira o espaço livre e os arquivos de logs.");
         }else if(req.action!=Action::None){
-            job=std::make_unique<Job>();job->request=req;
+            job=std::make_unique<Job>();job->request=req;job->executable=std::filesystem::u8path(menu_path);if(req.action==Action::InstallUpdate)job->manifest=pending_update;
             auto rc=threadCreate(&job->thread,work,job.get(),nullptr,0x40000,0x2c,-2);
             if(R_SUCCEEDED(rc)){rc=threadStart(&job->thread);if(R_FAILED(rc))threadClose(&job->thread);}
             if(R_FAILED(rc)){job.reset();menu.report("Não foi possível iniciar","A operação não começou. Seus arquivos não foram alterados.");}
@@ -128,6 +151,6 @@ int main(int argc,char** argv){
     }
     // Do not release shared buffers while a native worker still owns them.
     if(job){job->cancel.store(true);threadWaitForExit(&job->thread);threadClose(&job->thread);}
-    if(leave)launch_trace("frontend.exit.for.runtime");
+    if(leave)launch_trace("frontend.exit.for.next_app");
     framebufferClose(&fb);return 0;
 }

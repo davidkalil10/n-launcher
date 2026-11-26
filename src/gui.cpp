@@ -6,6 +6,8 @@
 #include <algorithm>
 #include <cstdio>
 #include <sstream>
+#include <filesystem>
+#include <stdexcept>
 
 namespace nlauncher {
 using namespace SwitchFrontend::Ui;
@@ -16,6 +18,21 @@ void image(Canvas& c,const Image& i,int x,int y,int w,int h){
     if(i.Empty())return;
     for(int dy=0;dy<h;++dy)for(int dx=0;dx<w;++dx)
         c.Data()[(y+dy)*c.Width()+x+dx]=i.px[(dy*i.h/h)*i.w+dx*i.w/w];
+}
+Flow::Settings game_settings(const Flow::Game& game){
+    auto path=game.Folder()+"/game.cfg";auto file=std::filesystem::u8path(Flow::OnCard(path));auto backup=file;backup+=".profile-backup";
+    if(!std::filesystem::exists(file)&&std::filesystem::exists(backup))std::filesystem::rename(backup,file);
+    return Flow::ReadSettings(path);
+}
+void save_memory(const Flow::Game& game,const nx2link::MemoryProfile& memory){
+    auto path=game.Folder()+"/game.cfg";auto cfg=game_settings(game);cfg["memory"]=memory.game_mb?std::to_string(memory.game_mb):"";cfg["room"]=memory.loader_mb?std::to_string(memory.loader_mb):"";
+    auto expected=cfg;for(auto it=expected.begin();it!=expected.end();)if(it->second.empty())it=expected.erase(it);else ++it;
+    auto stage=path+".profile-part";
+    if(!Flow::WriteSettings(stage,cfg)||Flow::ReadSettings(stage)!=expected)throw std::runtime_error("Não foi possível conferir o perfil gravado");
+    auto file=std::filesystem::u8path(Flow::OnCard(path)),temporary=std::filesystem::u8path(Flow::OnCard(stage));auto backup=file;backup+=".profile-backup";
+    bool existed=std::filesystem::exists(file);if(existed){std::filesystem::remove(backup);std::filesystem::rename(file,backup);}
+    try{std::filesystem::rename(temporary,file);}catch(...){if(existed)std::filesystem::rename(backup,file);throw;}
+    std::error_code ec;std::filesystem::remove(backup,ec);
 }
 std::string parent(std::string p){auto n=p.find_last_of('/');return n==0?"/":p.substr(0,n);}
 }
@@ -36,12 +53,36 @@ std::vector<std::string> Menu::message_lines(){
 }
 void Menu::report(std::string t,std::string d,bool b,float f){title=std::move(t);detail=std::move(d);if(!working||!b)cancel=false;working=b;progress=f;message_scroll=0;screen=Screen::Message;}
 void Menu::finish_job(std::string t,std::string d){report(std::move(t),std::move(d));}
+Request Menu::request(Action action){
+    if(action==Action::None)return {};
+    try{auto cfg=game_settings(games[selected]);return {action,games[selected].path,{nx2link::parse_memory(cfg["memory"],true),nx2link::parse_memory(cfg["room"],false)}};}
+    catch(const std::exception& e){report("Perfil de memória inválido",std::string(e.what())+". Abra Memória por jogo para restaurar o automático.");return {};}
+}
+void Menu::open_memory(){
+    if(games[selected].id.empty()){report("Título não identificado","Verifique o NUP antes de configurar o perfil.");return;}
+    try{auto cfg=game_settings(games[selected]);
+        try{memory={nx2link::parse_memory(cfg["memory"],true),nx2link::parse_memory(cfg["room"],false)};}catch(...){memory={};}
+        memory_cursor=0;screen=Screen::Memory;
+    }catch(const std::exception& e){report("Não foi possível abrir o perfil",e.what());}
+}
+void Menu::offer_update(const std::string& version,uint64_t size){working=false;update_version=version;update_size=size;screen=Screen::Update;}
+void Menu::offer_restart(){working=false;screen=Screen::Restart;}
 Request Menu::update(Keys k){
     if(working){if(k.b)cancel=true;return {};}
     if(screen==Screen::Message){
         if(k.a||k.b)screen=Screen::Library;
         if(k.up&&message_scroll>0)--message_scroll;
         auto count=message_lines().size();if(k.down&&message_scroll+9<count)++message_scroll;
+        return {};
+    }
+    if(screen==Screen::Update){if(k.b)screen=Screen::Library;if(k.a)return {Action::InstallUpdate,{},{}};return {};}
+    if(screen==Screen::Restart){if(k.a)return {Action::Restart,{},{}};if(k.b||k.plus)return {Action::Exit,{},{}};return {};}
+    if(screen==Screen::Memory){
+        if(k.b){screen=Screen::Options;return {};}
+        if(k.up||k.down)memory_cursor=1-memory_cursor;
+        if(k.left||k.right){auto& v=memory_cursor==0?memory.game_mb:memory.loader_mb;v=nx2link::step_memory(v,k.right?1:-1,memory_cursor==0);}
+        if(k.x)memory={};
+        if(k.a){try{save_memory(games[selected],memory);report("Perfil salvo","As reservas serão usadas ao abrir este jogo. O cache existente será mantido.");}catch(const std::exception& e){report("Não foi possível salvar",std::string(e.what())+". O perfil anterior foi preservado.");}}
         return {};
     }
     if(screen==Screen::Picker){
@@ -55,11 +96,12 @@ Request Menu::update(Keys k){
     if(screen==Screen::Options){
         if(k.b){screen=Screen::Library;return {};}
         if(k.up&&cursor>0)--cursor;
-        if(k.down&&cursor<4)++cursor;
-        if(k.a){screen=Screen::Library;return {cursor==0?Action::Prepare:cursor==1?Action::Inspect:cursor==2?Action::Probe:cursor==3?Action::Logs:Action::None,games[selected].path};}
+        if(k.down&&cursor<5)++cursor;
+        if(k.a){if(cursor==0){open_memory();return {};}screen=Screen::Library;return request(cursor==1?Action::Prepare:cursor==2?Action::Inspect:cursor==3?Action::Probe:cursor==4?Action::Logs:Action::None);}
         return {};
     }
     if(k.plus)return {Action::Exit,{}};
+    if(k.r)return {Action::CheckUpdate,{},{}};
     if(k.minus){picker=Flow::IsFolder(folder)?folder:"/";folders();screen=Screen::Picker;return {};}
     if(k.x){scan();return {};}
     if(games.empty())return {};
@@ -68,7 +110,7 @@ Request Menu::update(Keys k){
     if(k.down)selected=std::min(selected+3,int(games.size())-1);
     if(k.up)selected=std::max(0,selected-3);
     if(k.y){screen=Screen::Options;cursor=0;}
-    if(k.a){if(!games[selected].error.empty()){report("Não foi possível abrir",games[selected].error);return {};}return {Action::Launch,games[selected].path};}
+    if(k.a){if(!games[selected].error.empty()){report("Não foi possível abrir",games[selected].error);return {};}return request(Action::Launch);}
     return {};
 }
 void Menu::draw(Canvas& c){
@@ -110,8 +152,8 @@ void Menu::draw(Canvas& c){
         }
     }
     c.FillRoundRect(116,620,1125,37,9,panel);text(c,132,644,fit(folder,1080,15),15,muted);
-    text(c,117,692,"A  Jogar",19,accent);text(c,258,692,"Y  Opções",18);text(c,430,692,"X  Atualizar",18,muted);
-    text(c,641,692,"−  Pasta",18,muted);text(c,813,692,"Direcional  Navegar",18,muted);text(c,1123,692,"+  Sair",18,muted);
+    text(c,117,692,"A  Jogar",19,accent);text(c,258,692,"Y  Opções",18);text(c,430,692,"X  Recarregar",18,muted);
+    text(c,641,692,"−  Pasta",18,muted);text(c,813,692,"R  Atualizações",18,muted);text(c,1123,692,"+  Sair",18,muted);
     if(screen!=Screen::Library){
         c.FillRect(0,0,1280,720,MakeColor(0,0,0,185));
         c.FillRoundRect(238,126,805,476,22,panel);
@@ -123,9 +165,22 @@ void Menu::draw(Canvas& c){
             text(c,274,574,"A  Abrir   ·   B  Voltar   ·   Y  Usar esta pasta",18,accent);
         }else if(screen==Screen::Options){
             text(c,270,175,"Opções do jogo",28);text(c,270,210,fit(games[selected].title,730,18),18,muted);
-            const char* rows[]={"Preparar e verificar jogo","Conferir integridade do índice","Testar carregador da sessão","Ver registros da última operação","Voltar à biblioteca"};
-            for(int i=0;i<5;++i){int y=234+i*56;c.FillRoundRect(265,y,750,48,10,cursor==i?MakeColor(36,72,69):bg);text(c,284,y+32,rows[i],21,cursor==i?accent:white);}
+            const char* rows[]={"Memória por jogo","Preparar e verificar jogo","Conferir integridade do índice","Testar carregador da sessão","Ver registros da última operação","Voltar à biblioteca"};
+            for(int i=0;i<6;++i){int y=230+i*49;c.FillRoundRect(265,y,750,42,10,cursor==i?MakeColor(36,72,69):bg);text(c,284,y+29,rows[i],20,cursor==i?accent:white);}
             text(c,272,564,"A  Selecionar   ·   B  Voltar",18,muted);
+        }else if(screen==Screen::Memory){
+            text(c,270,175,"Memória por jogo",28);text(c,270,210,fit(games[selected].title,730,18),18,muted);
+            const char* labels[]={"Memória do jogo","Reserva do carregador"};
+            for(int i=0;i<2;++i){int y=242+i*73;auto value=i==0?memory.game_mb:memory.loader_mb;std::string shown=value?std::to_string(value)+" MiB":"Automático";
+                c.FillRoundRect(265,y,750,61,10,memory_cursor==i?MakeColor(36,72,69):bg);text(c,284,y+39,labels[i],22,memory_cursor==i?accent:white);text(c,782,y+39,shown,20,accent);}
+            std::string help=memory_cursor==0?"Limite informado ao jogo na abertura. Valores altos demais podem impedir o início. Automático mantém o padrão.":"Reserva inicial para módulos e leituras. Reservar demais reduz o espaço disponível ao jogo. Automático inicia com 384 MiB.";
+            int y=433;for(const auto& line:WrapLines(font,help,18,720)){text(c,273,y,line,18,muted);y+=28;}
+            text(c,273,574,"Esq/Dir  Ajustar  ·  A  Salvar  ·  X  Auto  ·  B  Cancelar",16,accent);
+        }else if(screen==Screen::Update){
+            text(c,270,179,"Atualizar N Launcher",28);text(c,273,238,"Versão atual: " NX2LINK_VERSION,22,muted);text(c,273,278,"Nova versão: "+update_version,24,accent);text(c,273,320,"Download: "+Flow::HumanSize(update_size),20,muted);
+            text(c,273,398,"O aplicativo será verificado antes da instalação.",19);text(c,273,432,"Jogos, cache, perfis e saves serão mantidos.",19,muted);text(c,273,574,"A  Baixar e atualizar   ·   B  Cancelar",18,accent);
+        }else if(screen==Screen::Restart){
+            text(c,270,180,"Atualização instalada",28);text(c,273,252,"Reabra o N Launcher para usar a nova versão.",22);text(c,273,300,"A versão anterior fica preservada até a confirmação.",18,muted);text(c,273,574,"A  Reabrir agora   ·   B  Voltar ao hbmenu",18,accent);
         }else{
             text(c,270,180,fit(title,730,28),28);
             auto lines=message_lines();int y=228;auto first=working&&lines.size()>9?lines.size()-9:message_scroll;

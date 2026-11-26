@@ -11,5 +11,5 @@ try {
     $compiler=Join-Path $SdkRoot 'devkitA64/bin/aarch64-none-elf-g++.exe'
     & $Python tools/build_gui.py --compiler $compiler --sdk $SdkRoot --support $SupportRoot
     if($LASTEXITCODE -ne 0){throw 'N Launcher GUI build failed'}
-    "$((Get-FileHash dist/nx2-link-switch2.nro -Algorithm SHA256).Hash.ToLowerInvariant())  nx2-link-switch2.nro" | Set-Content dist/SHA256SUMS.txt -Encoding ascii
+    "$((Get-FileHash dist/n-launcher.nro -Algorithm SHA256).Hash.ToLowerInvariant())  n-launcher.nro" | Set-Content dist/SHA256SUMS.txt -Encoding ascii
 } finally {Pop-Location}

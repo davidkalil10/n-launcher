@@ -24,7 +24,7 @@ O runtime nx2-flow 0.1.3 prepara imagens e descritores dinâmicos, resolve símb
 
 O loader constrói cabeçalho e tabelas de um RomFS virtual em memória. Arquivos sem compressão vêm diretamente do NUP. Arquivos comprimidos até 64 MiB continuam no cache RAM upstream. Os maiores são preparados com Zstd streaming e SHA-256 para o SD, em partes de 1 GiB, e servidos como entradas kind=3. Não se monta um RomFS gigante persistente e não se carrega o jogo inteiro na RAM.
 
-O preflight de cache aplica base/updates e verifica espaço antes de gravar. A confirmação só é publicada após tamanho e hash aprovados. Saves e dados do runtime têm namespace exclusivo `/switch/nx2-link/<ID>/`; os saves nativos não são abertos para escrita. [Formato do cache](CACHE.md).
+O preflight de cache aplica base/updates e verifica espaço antes de gravar. A confirmação só é publicada após tamanho e hash aprovados. Saves e dados do runtime têm namespace exclusivo `/switch/n-launcher/<ID>/`; os saves nativos não são abertos para escrita. [Formato do cache](CACHE.md).
 
 ## Handoff e ciclo de vida
 

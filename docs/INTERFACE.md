@@ -2,7 +2,7 @@
 
 Interface própria em português, com biblioteca de seis cartões por página, ícones do NUP, título, ID, tamanho e indicação de arquivo completo ou NUP dividido. Sem ícone disponível, exibe uma capa neutra identificada com N.
 
-Controles: direcional navega; A prepara/inicia; Y abre opções; X atualiza a lista; − escolhe a pasta; + sai. No seletor, A abre pasta, B volta e Y confirma. Pastas `.nup` são jogos e não entram na lista de subpastas. A escolha fica em `/switch/nx2-link/menu.cfg`.
+Controles: direcional navega; A prepara/inicia; Y abre opções; X atualiza a lista; − escolhe a pasta; + sai. No seletor, A abre pasta, B volta e Y confirma. Pastas `.nup` são jogos e não entram na lista de subpastas. A escolha fica em `/switch/n-launcher/menu.cfg`.
 
 Preparação ocorre em thread própria. A janela de progresso mostra a etapa e, durante o cache, o volume expandido e a fração concluída. B solicita cancelamento; ele só é aplicado em um ponto seguro de preparação, antes do handoff para o jogo.
 

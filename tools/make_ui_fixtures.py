@@ -23,7 +23,7 @@ def fixture(title,index):
     return bytes(head)+toc+meta
 
 def main(root):
-    folder=root/'switch/nx2-link/input';folder.mkdir(parents=True,exist_ok=True)
+    folder=root/'switch/n-launcher/input';folder.mkdir(parents=True,exist_ok=True)
     for i,title in enumerate(['Aurora Valley','Café Nebula','Clockwork Islands','Lantern Harbor','Paper Comet','Quiet Tides']):
         data=fixture(title,i)
         path=folder/(title+'.nup')

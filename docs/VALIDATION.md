@@ -48,3 +48,9 @@ Execução de jogo, framebuffer no console, áudio, saves e retorno ao menu aind
 - Frontend alterado para libounce_core/newlib, com verificação explícita do mapa. Runtime e formato de cache mantidos; causa no alocador ainda é hipótese.
 - 28 testes de leitura/preparação e verificação dos NROs aprovados localmente; teste de hardware pendente.
 - Pacote N Launcher - Diagnostico 0.0.5: 19.989.703 bytes; SHA-256 `383d5057539d19d76379ca8f6e405502e943ae127e9eebd60c3d7d323cba5475`.
+
+## Confirmação de console 0.0.5 e integração 0.0.6 — 2026-11-26
+
+Pokopia splitado executou com imagem, áudio e controles corretos; salvar e carregar também foram confirmados no console. O frontend newlib é mantido como padrão. A confirmação não cobre outros jogos nem o retorno ao hbmenu.
+
+0.0.6 acrescenta 38 verificações sintéticas para manifesto/HTTP, download interrompido, hash incorreto, cancelamento, troca com cópia anterior, confirmação pela versão nova, perfis e migração sem sobrescrita. Testes da GUI incluem persistência de perfil e confirmação do update. Build local dos dois NROs e mapas aprovada. TLS, migração real e atualização de uma versão para outra no hardware permanecem pendentes.

@@ -53,7 +53,7 @@ extern "C" u32 nl_input_read(u64 at,void* output,u64 size){
 }
 extern "C" int nl_cache_open(const u8* sha,u64 size){
     if(cache_count>=512)return -1;
-    auto& entry=caches[cache_count];std::strcpy(entry.path,"/switch/nx2-link/content/");unsigned n=std::strlen(entry.path);
+    auto& entry=caches[cache_count];std::strcpy(entry.path,"/switch/n-launcher/content/");unsigned n=std::strlen(entry.path);
     const char* hex="0123456789abcdef";for(unsigned i=0;i<32;++i){entry.path[n++]=hex[sha[i]>>4];entry.path[n++]=hex[sha[i]&15];}entry.path[n++]='/';entry.path[n]=0;
     char path[192];std::snprintf(path,sizeof path,"%scomplete",entry.path);FsFile file{};auto* fs=fsdevGetDeviceFileSystem("sdmc");
     if(!fs||R_FAILED(fsFsOpenFile(fs,path,FsOpenMode_Read,&file)))return -1;

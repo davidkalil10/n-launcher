@@ -12,7 +12,7 @@ def main():
     prepare();bake(ROOT/'build/flow/menu/source/font_baked.h');os.chdir(ROOT)
     env=dict(os.environ);env['PATH']=str(Path(a.compiler).parent)+os.pathsep+a.support+os.pathsep+env.get('PATH','')
     def run(args):subprocess.run([str(s) for s in args],env=env,check=True)
-    common=['src/gui.cpp','build/flow/menu/source/nup.cpp','build/flow/menu/source/library.cpp','build/flow/menu/source/images.cpp','src/input.cpp']
+    common=['src/gui.cpp','build/flow/menu/source/nup.cpp','build/flow/menu/source/library.cpp','build/flow/menu/source/images.cpp','src/input.cpp','src/profile.cpp']
     flags=['-std=gnu++20','-fno-char8_t','-O2','-Wall','-Iinclude','-Isrc','-Ibuild/flow/menu/source']
     out=ROOT/'build/gui';out.mkdir(parents=True,exist_ok=True)
     if a.preview:
@@ -37,7 +37,7 @@ def main():
         blob=out/'runtime_blob.S';blob.write_text('.section .rodata.nl_runtime,"a"\n.balign 16\n.global nl_runtime_begin\n.global nl_runtime_end\nnl_runtime_begin:\n.incbin "dist/n-launcher-game.nro"\nnl_runtime_end:\n',encoding='ascii')
         obj=out/'runtime_blob.o';cc=Path(a.compiler).with_name('aarch64-none-elf-gcc.exe')
         run([cc,'-c',blob,'-o',obj])
-        run([a.compiler,*flags,*common,'src/program.cpp','src/cache.cpp','src/loader_probe.cpp','src/gui_switch.cpp','src/launch_trace.cpp','build/switch2/zstd.o',obj,f'-L{sdk}/libounce/lib',f'-L{sdk}/portlibs/switch2/lib','-lkaihen','-lounce_core' if a.allocator=='newlib' else '-lnx','-Wl,--gc-sections',f'-Wl,-Map,{mapfile}','-o',elf])
+        run([a.compiler,*flags,*common,'src/program.cpp','src/cache.cpp','src/loader_probe.cpp','src/gui_switch.cpp','src/launch_trace.cpp','src/update.cpp','src/http.cpp','src/https_switch.cpp','src/layout.cpp','build/switch2/zstd.o',obj,f'-L{sdk}/libounce/lib',f'-L{sdk}/portlibs/switch2/lib','-lkaihen','-lounce_core' if a.allocator=='newlib' else '-lnx','-Wl,--gc-sections',f'-Wl,-Map,{mapfile}','-o',elf])
         map_text=mapfile.read_text(errors='replace')
         if a.allocator=='newlib' and ('libounce_core.a' not in map_text or 'malloc_init.o' in map_text or '__mi_theap_default' in map_text):
             raise RuntimeError('Frontend allocator does not match requested newlib baseline')
@@ -47,7 +47,7 @@ def main():
         from PIL import Image,ImageDraw,ImageFont
         icon=Image.new('RGB',(256,256),(12,17,25));draw=ImageDraw.Draw(icon);draw.rounded_rectangle((28,28,228,228),radius=56,fill=(80,226,184))
         font=ImageFont.truetype(str(ROOT/'third_party/noto-sans/NotoSans.ttf'),164);draw.text((128,119),'N',font=font,anchor='mm',fill=(12,17,25));icon.save(out/'icon.jpg',quality=95)
-        nro=ROOT/'dist/nx2-link-switch2.nro'
+        nro=ROOT/'dist/n-launcher.nro'
         run([f'{sdk}/tools/bin/elf2nro.exe',elf,nro,f'--nacp={out}/app.nacp',f'--icon={out}/icon.jpg'])
         run([sys.executable,'tools/verify_switch2_package.py',nro,mapfile])
         print(nro)

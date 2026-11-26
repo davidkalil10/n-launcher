@@ -21,3 +21,12 @@ O SHA-256 do NRO acompanha dist/SHA256SUMS.txt (saída de build, não fonte vers
 - [GitHub Actions 45757116079](https://github.com/davidkalil10/nx2-link-enhanced/actions/runs/45757116079), commit b14a7b0: testes Linux e build/verificação do NRO Windows aprovados.
 - NRO local e CI com SHA-256 idêntico: `ac242c2e75bf70abb5e38da5ff18cda1be0a17d96508967cbd99faa256a1ca77`.
 - Teste X no console pendente. A implementação usa somente a sessão ldr:ro herdada e não reativa kaiHEN. NUPs e saves não são acessados pelo teste X.
+
+## Preparação 0.0.3
+
+- Teste X de 0.0.2 confirmado no console: 3/3 ciclos, com kaiHEN já ativo.
+- 27 testes sintéticos de leitura/preparação aprovados no Windows e Linux, além dos testes de propriedade do carregador.
+- Pokopia splitado: imagens main/subsdk0/sdk e metadados comparados com o builder original pelo tools/compare_program.py: idênticos. Nenhum arquivo de jogo modificado.
+- [GitHub Actions 45759241537](https://github.com/davidkalil10/nx2-link-enhanced/actions/runs/45759241537), commit a8b292a: testes e NRO aprovados.
+- SHA-256 do NRO de teste: `e5396d0b8a877a2537120b4b15d81eae87c492523065ab34962662c0c3ba872c`.
+- Preparação Y no console ainda pendente. O jogo não é executado nesta versão.

@@ -6,6 +6,10 @@ Com o kaiHEN já ativo, substitua a NRO, abra pelo hbmenu, selecione a pasta `.n
 
 Resultado esperado para o backup testado: **OK: programa preparado (3 módulos)**. O registro fica em `/switch/nx2-link/logs/program-prepare.log`. A etapa descomprime/verifica módulos em RAM, um por vez, sem gerar arquivo grande no SD e sem persistir as imagens. Não executa o jogo nem escreve nos saves; a ativação do kaiHEN permanece a existente.
 
+## Validação no hardware
+
+A preparação Y do Pokopia foi confirmada no console em 2026-11-26, mantendo a ativação existente do kaiHEN. Esse marco confirma a leitura/descompressão e preparação dos módulos no hardware. A comparação byte a byte com o builder PC foi realizada no host; não houve ainda execução do jogo nem validação de áudio ou saves.
+
 ## Implementação
 
 1. Validar TOC e índices de diretórios/arquivos; impedir ciclos, caminhos inválidos e leitura fora dos limites.

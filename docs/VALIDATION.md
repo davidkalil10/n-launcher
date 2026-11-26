@@ -29,4 +29,4 @@ O SHA-256 do NRO acompanha dist/SHA256SUMS.txt (saída de build, não fonte vers
 - Pokopia splitado: imagens main/subsdk0/sdk e metadados comparados com o builder original pelo tools/compare_program.py: idênticos. Nenhum arquivo de jogo modificado.
 - [GitHub Actions 45759241537](https://github.com/davidkalil10/nx2-link-enhanced/actions/runs/45759241537), commit a8b292a: testes e NRO aprovados.
 - SHA-256 do NRO de teste: `e5396d0b8a877a2537120b4b15d81eae87c492523065ab34962662c0c3ba872c`.
-- Preparação Y no console ainda pendente. O jogo não é executado nesta versão.
+- Preparação Y do Pokopia confirmada no console em 2026-11-26, mantendo o kaiHEN ativo. O jogo não é executado nesta versão.

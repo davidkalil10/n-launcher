@@ -17,7 +17,7 @@
 - [x] Implementar prova sintética de carga, permissões, chamadas, dados/BSS, descarga e recarga em três ciclos.
 - [x] Prova X confirmada no console: 3/3 ciclos aprovados.
 - [x] Preparar NSO LZ4 a partir do NUP completo/splitado, verificar hashes e imagens contra o builder PC.
-- [ ] Confirmar Y no console para o Pokopia (3 módulos).
+- [x] Preparação Y do Pokopia confirmada no console em 0.0.3 (3 módulos).
 - [ ] Integrar imagens/tabelas ao runtime e gerar thunks; resolver imports, relocações e TLS.
 - [ ] Reproduzir a inicialização do Pokopia usando o mesmo NUP e perfil de memória do teste PC.
 - [ ] Verificar separadamente imagem, áudio, entradas, saves e retorno ao hbmenu.

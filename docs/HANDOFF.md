@@ -32,10 +32,14 @@ Elliot Demo passou na inspeção no console. A pasta Pokopia no SD e a pasta loc
 
 ## Estado atual do marco de carregamento
 
-Pokopia NUP v1 splitado e Elliot passaram na inspeção no console. A prova X de 0.0.2 passou no kaiHEN existente. A etapa atual é a preparação Y de 0.0.3, sem reativação. Ver docs/LOADER_PROBE.md. O módulo sintético não tem imports/TLS/SVC; foi gerado pelo assembler e não é o runtime de jogo. Não avançar a execução do Pokopia com base apenas na build aprovada.
+Pokopia NUP v1 splitado e Elliot passaram na inspeção no console. A prova X de 0.0.2 passou no kaiHEN existente. A preparação Y de 0.0.3 também passou no console, sem reativação. Ver docs/LOADER_PROBE.md. O módulo sintético não tem imports/TLS/SVC; foi gerado pelo assembler e não é o runtime de jogo. Não avançar a execução do Pokopia com base apenas na build aprovada.
 
 ## Marco atual — 0.0.3
 
 O teste X de 0.0.2 passou no console, confirmado com a mensagem 3/3. Não pedir outra ativação do kaiHEN. A versão 0.0.3 adiciona Y para preparar os módulos reais do NUP (completo ou splitado). Input é compartilhado; Zstd streaming -> SHA do NSO -> segmentos LZ4/SHA -> imagem com offsets originais -> relatório. Ainda não mapeia esses módulos nem chama o jogo.
 
 As imagens main/subsdk0/sdk do Pokopia foram comparadas com o builder upstream: hashes e MOD0/dynamic/object/end idênticos. Consulte docs/PROGRAM_PREPARATION.md. Próximo marco: integrar Nx2Module/Nx2Image dinâmicos ao runtime MIT do upstream, resolver símbolos/relocações/TLS, gerar thunks sem modificar SVC 0x36 e servir RomFS. ZBIC continua não implementado; não tentar tratar como LZ4 ou apenas trocar o magic.
+
+## Checkpoint confirmado no console
+
+Em 2026-11-26 a preparação Y do Pokopia em 0.0.3 foi confirmada com sucesso. M0, prova sintética X e preparação dos módulos reais Y estão validados no hardware. Avançar para integração do runtime; não repetir uma nova prova equivalente nem exigir reativação do kaiHEN para atualizar a NRO. Execução do jogo, áudio e saves continuam não validados neste projeto.

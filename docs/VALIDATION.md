@@ -36,3 +36,8 @@ O SHA-256 do NRO acompanha dist/SHA256SUMS.txt (saída de build, não fonte vers
 Interface gráfica e runtime genérico incorporado; arquivos grandes de RomFS são preparados para cache no SD. Testes locais incluem 28 testes de leitura/preparação (incluindo update com ID variante 0x800), ownership do carregador, sete casos de cache, três casos do backend nativo com FS simulado e ações/metadados/persistência da GUI. O verificador estrito é aplicado aos dois NROs.
 
 Execução de jogo, framebuffer no console, áudio, saves e retorno ao menu ainda não validados nesta integração. O resultado da prova X e da preparação Y anteriores continua válido para seus próprios escopos.
+
+- [GitHub Actions 45828330300](https://github.com/davidkalil10/nx2-link-enhanced/actions/runs/45828330300), fonte `f66bb0e`: testes Linux e build/verificação Windows aprovados, com rascunho de teste gerado.
+- A suíte Linux inclui travessia de parte acima de 4 GiB usando arquivo esparso sintético; esse caso é omitido no Windows para evitar alocação física acidental.
+- NRO do CI: 20.104.391 bytes; SHA-256 `52787168534674635e5fb56656dfb72a183da94b2c092840b07a04d476457028`. Download conferido contra o digest da API e SHA256SUMS.txt; NACP confirma N Launcher 0.0.4.
+- Prévia da biblioteca no README vem do mesmo renderer da GUI, com fixtures próprias. Nenhum dado de jogo foi enviado ao CI.

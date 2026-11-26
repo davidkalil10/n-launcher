@@ -4,6 +4,10 @@ Homebrew de Switch 2 para escolher um backup NUP no cartão SD, preparar os dado
 
 **Versão 0.0.4 — build experimental para validação.** A interface gráfica, o carregador genérico e o cache em blocos estão integrados. A execução de jogos por esta versão ainda precisa de teste no console. As etapas anteriores de leitura, prova do carregador e preparação de módulos do Pokopia foram validadas no hardware; isso não confirma imagem, áudio ou saves do novo carregador.
 
+![Biblioteca do N Launcher com dados sintéticos](docs/images/library.png)
+
+*Prévia renderizada com biblioteca fictícia; não representa validação de execução dos jogos.*
+
 ## Usar no console
 
 1. Copie `nx2-link-switch2.nro` para `/switch/nx2-link/` no SD. Esse nome de arquivo foi mantido para compatibilidade; o aplicativo aparece como **N Launcher** no hbmenu.

@@ -69,3 +69,7 @@ A build de diagnóstico usa libounce_core/newlib apenas no frontend, alternativa
 - http.cpp limita e valida HTTP; https_switch.cpp usa TLS nativo com CA/host/data verificados e apenas hosts públicos de assets do GitHub. Sem token no console. Consulta R, confirmação A, download em streaming. Primeira instalação manual.
 - package_release.py produz NRO, ZIP com licenças, update.ini e SHA256SUMS.txt. Actions testa Linux, compila/verifica Windows e gera rascunhos; tag v<versão> da main ou dispatch publish_release publica o feed /releases/latest/download/update.ini. Runtime upstream não é atualizado automaticamente.
 - Testes: 38 verificações do núcleo de atualização/perfil/migração; suítes de leitor, NSO, cache e FS nativo; GUI com perfil persistido, cancelamento e confirmação de update. Distinguir estes testes de validação de TLS no hardware.
+
+## Distribuição 0.0.7
+
+Repositório oficial público: https://github.com/davidkalil10/n-launcher. URL central do updater em include/nx2link/update.hpp. Git remote e empacotador usam o novo nome. O teste solicitado é atualizar a 0.0.6 já instalada pelo botão R; não pedir instalação manual da 0.0.7 antes desse teste. A URL legada responde por redirect do GitHub, sem token. Runtime/cache/saves e políticas de memória mantidos. Não reutilizar o nome antigo do repositório enquanto houver instalações antigas dependentes do redirect. HTTPS e troca no console permanecem pendentes até confirmação.

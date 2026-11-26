@@ -24,7 +24,7 @@ static std::vector<uint8_t> read(const fs::path& p){std::ifstream f(p,std::ios::
 static std::string hex(const std::array<uint8_t,32>& sha){const char* h="0123456789abcdef";std::string s;for(auto b:sha){s+=h[b>>4];s+=h[b&15];}return s;}
 static UpdateManifest manifest(const std::vector<uint8_t>& b){return {"0.0.6",b.size(),digest256(b.data(),b.size())};}
 static std::string text(const UpdateManifest& m){return "schema=1\nversion="+m.version+"\nasset=n-launcher.nro\nsize="+std::to_string(m.size)+"\nsha256="+hex(m.sha)+"\n";}
-static UpdateFetch fetch(const std::vector<uint8_t>& b){return [b](const std::string& url,const UpdateSink& sink,uint64_t limit){assert(url=="https://github.com/davidkalil10/nx2-link-enhanced/releases/download/v0.0.6/n-launcher.nro");assert(limit==b.size());for(size_t at=0;at<b.size();at+=997)sink(b.data()+at,std::min<size_t>(997,b.size()-at));};}
+static UpdateFetch fetch(const std::vector<uint8_t>& b){return [b](const std::string& url,const UpdateSink& sink,uint64_t limit){assert(url=="https://github.com/davidkalil10/n-launcher/releases/download/v0.0.6/n-launcher.nro");assert(limit==b.size());for(size_t at=0;at<b.size();at+=997)sink(b.data()+at,std::min<size_t>(997,b.size()-at));};}
 static HttpResponse response(const std::string& wire,std::string& output,uint64_t limit=100){size_t at=0;return read_update_response([&](uint8_t* p,size_t n){auto take=std::min<size_t>({n,3,wire.size()-at});std::memcpy(p,wire.data()+at,take);at+=take;return take;},[&](const uint8_t* p,size_t n){output.append(reinterpret_cast<const char*>(p),n);},limit);}
 int main(int argc,char** argv){
     assert(argc==2);auto root=fs::path(argv[1]);fs::create_directories(root);

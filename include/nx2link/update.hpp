@@ -6,9 +6,9 @@
 #include <functional>
 #include <string>
 namespace nx2link {
-inline constexpr const char* UpdateRepository="davidkalil10/nx2-link-enhanced";
+inline constexpr const char* UpdateRepository="davidkalil10/n-launcher";
 inline constexpr const char* UpdateAsset="n-launcher.nro";
-inline constexpr const char* UpdateManifestURL="https://github.com/davidkalil10/nx2-link-enhanced/releases/latest/download/update.ini";
+inline constexpr const char* UpdateManifestURL="https://github.com/davidkalil10/n-launcher/releases/latest/download/update.ini";
 struct UpdateManifest {std::string version;uint64_t size{};std::array<uint8_t,32> sha{};};
 UpdateManifest parse_update_manifest(const std::string&);
 bool version_newer(const std::string& candidate,const std::string& current);

@@ -34,3 +34,9 @@ A release é preparada como rascunho e só se torna pública/latest após o uplo
 ## Validação
 
 Os testes usam apenas dados sintéticos e transporte simulado. Incluem HTTP com respostas fragmentadas e chunked, redirecionamento, limites, manifesto inválido, interrupção, cancelamento, hash incorreto, plataforma/versão erradas e confirmação do backup. HTTPS nativo e uma troca completa no console ainda precisam de confirmação específica em hardware.
+
+## Teste 0.0.6 → 0.0.7
+
+O repositório oficial passou a ser `davidkalil10/n-launcher` e está público. A 0.0.6 instalada usa o endereço anterior, `davidkalil10/nx2-link-enhanced`; o GitHub redireciona suas URLs de release para o novo nome. Mantenha o nome antigo sem reutilização em outro repositório para preservar esse acesso das versões já instaladas.
+
+Pressione R na 0.0.6, confirme a 0.0.7, aguarde instalar e pressione A para reabrir. Confira a versão no canto superior. O novo processo confere o arquivo e confirma a atualização antes de remover sua cópia anterior. Nenhum novo cache de jogo é exigido por esta versão.

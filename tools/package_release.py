@@ -23,7 +23,7 @@ Nao apague saves nem o cache para atualizar. Conflitos sao preservados e informa
 R: atualizacoes pelo GitHub. Y: opcoes do titulo, incluindo Memoria por jogo.
 Padrao de memoria: Automatico. Jogos, cache e saves ficam separados do arquivo atualizado.
 
-Fonte e creditos: https://github.com/davidkalil10/nx2-link-enhanced/tree/v{version}
+Fonte e creditos: https://github.com/davidkalil10/n-launcher/tree/v{version}
 Pokopia splitado validado no console: imagem, audio, controles, salvar e carregar.
 Outros jogos e a atualizacao via TLS ainda exigem validacao especifica no hardware.
 '''

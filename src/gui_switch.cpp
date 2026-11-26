@@ -52,6 +52,7 @@ void work(void* arg){
                     if(job.cancel.load())throw std::runtime_error("Preparação cancelada. O NUP original foi preservado.");
                     job.status(message);job.fraction.store(float(value));
                 });
+                if(job.cancel.load())throw std::runtime_error("Preparação cancelada antes de iniciar o jogo. Cache verificado preservado.");
                 if(job.request.action==nlauncher::Action::Launch)install_runtime();
                 job.result="Programa preparado: "+std::to_string(n)+" módulos.\nCache: "+std::to_string(cached)+" arquivos grandes verificados.";
             }else{auto info=nx2link::inspect(input);job.result="Índice SHA-256 válido.\n"+std::to_string(input.parts().size())+" partes · "+std::to_string(info.packages.size())+" pacotes · "+std::to_string(info.files)+" arquivos.\nO conteúdo de cada arquivo ainda não foi verificado.";}
@@ -78,6 +79,7 @@ int main(int argc,char** argv){
             if(k.b)job->cancel.store(true);
             if(job->done.load()){
                 threadWaitForExit(&job->thread);threadClose(&job->thread);
+                if(job->success&&job->cancel.load()&&job->request.action==Action::Launch){job->success=false;job->result="Preparação cancelada antes de iniciar o jogo. Cache verificado preservado.";}
                 if(job->success&&job->request.action==Action::Launch){
                     const auto loader=Flow::OnCard(Flow::kGameNro);
                     const std::string args="\""+loader+"\" \""+Flow::OnCard(job->request.path)+"\" \"menu="+menu_path+"\"";

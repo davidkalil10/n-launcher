@@ -5,6 +5,7 @@
 #include "nx2link/version.hpp"
 #include <algorithm>
 #include <cstdio>
+#include <sstream>
 
 namespace nlauncher {
 using namespace SwitchFrontend::Ui;
@@ -28,11 +29,21 @@ void Menu::save(){Flow::WriteSettings(Flow::kMenuCfg,{{"games",folder}});}
 void Menu::scan(){games=Flow::ScanGames(folder);selected=std::min(selected,std::max(0,int(games.size())-1));icons.clear();}
 void Menu::start(){auto cfg=Flow::ReadSettings(Flow::kMenuCfg);if(cfg.count("games")&&Flow::IsFolder(cfg["games"]))folder=cfg["games"];scan();}
 void Menu::folders(){dirs=Flow::ListFolders(picker);dirs.erase(std::remove_if(dirs.begin(),dirs.end(),[](const std::string& s){auto tail=s.size()>=4?s.substr(s.size()-4):"";std::transform(tail.begin(),tail.end(),tail.begin(),[](unsigned char c){return std::tolower(c);});return tail==".nup";}),dirs.end());folder_cursor=0;}
-void Menu::report(std::string t,std::string d,bool b,float f){title=std::move(t);detail=std::move(d);working=b;progress=f;cancel=false;screen=Screen::Message;}
+std::vector<std::string> Menu::message_lines(){
+    std::vector<std::string> lines;std::istringstream input(detail);std::string paragraph;
+    while(std::getline(input,paragraph)){auto wrapped=WrapLines(font,paragraph,19,720);if(wrapped.empty())lines.emplace_back();else lines.insert(lines.end(),wrapped.begin(),wrapped.end());}
+    return lines;
+}
+void Menu::report(std::string t,std::string d,bool b,float f){title=std::move(t);detail=std::move(d);if(!working||!b)cancel=false;working=b;progress=f;message_scroll=0;screen=Screen::Message;}
 void Menu::finish_job(std::string t,std::string d){report(std::move(t),std::move(d));}
 Request Menu::update(Keys k){
     if(working){if(k.b)cancel=true;return {};}
-    if(screen==Screen::Message){if(k.a||k.b)screen=Screen::Library;return {};}
+    if(screen==Screen::Message){
+        if(k.a||k.b)screen=Screen::Library;
+        if(k.up&&message_scroll>0)--message_scroll;
+        auto count=message_lines().size();if(k.down&&message_scroll+9<count)++message_scroll;
+        return {};
+    }
     if(screen==Screen::Picker){
         if(k.up&&folder_cursor>0)--folder_cursor;
         if(k.down&&folder_cursor+1<int(dirs.size()))++folder_cursor;
@@ -61,6 +72,7 @@ Request Menu::update(Keys k){
     return {};
 }
 void Menu::draw(Canvas& c){
+    ++frames;
     c.Clear(bg);
     c.FillRect(0,0,86,720,MakeColor(16,23,32));
     c.FillRoundRect(19,27,48,48,14,accent);text(c,32,61,"N",32,bg);
@@ -116,10 +128,13 @@ void Menu::draw(Canvas& c){
             text(c,272,564,"A  Selecionar   ·   B  Voltar",18,muted);
         }else{
             text(c,270,180,fit(title,730,28),28);
-            auto lines=WrapLines(font,detail,19,720);int y=228;
-            for(std::size_t j=lines.size()>9?lines.size()-9:0;j<lines.size();++j){text(c,272,y,lines[j],19,muted);y+=29;}
-            if(working){c.FillRoundRect(272,527,732,8,4,line);c.FillRoundRect(272,527,int(732*(progress<0?0.16f:std::clamp(progress,0.0f,1.0f))),8,4,accent);text(c,272,574,cancel?"Cancelando na próxima etapa segura…":"B  Cancelar ao concluir a etapa atual",17,muted);}
-            else text(c,272,574,"A / B  Voltar à biblioteca",18,accent);
+            auto lines=message_lines();int y=228;auto first=working&&lines.size()>9?lines.size()-9:message_scroll;
+            for(std::size_t j=first;j<std::min(first+9,lines.size());++j){text(c,272,y,lines[j],19,muted);y+=29;}
+            if(working){c.FillRoundRect(272,527,732,8,4,line);
+                int x=progress<0?272+int((frames%90)/90.0f*530):272;
+                int width=progress<0?202:int(732*std::clamp(progress,0.0f,1.0f));
+                c.FillRoundRect(x,527,width,8,4,accent);text(c,272,574,cancel?"Cancelando na próxima etapa segura…":"B  Cancelar ao concluir a etapa atual",17,muted);}
+            else text(c,272,574,lines.size()>9?"A / B  Voltar   ·   Direcional  Rolar texto":"A / B  Voltar à biblioteca",18,accent);
         }
     }
 }

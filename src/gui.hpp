@@ -21,6 +21,7 @@ private:
     void scan();void folders();void save();
     void text(SwitchFrontend::Ui::Canvas&,int,int,std::string_view,int=20,SwitchFrontend::Ui::u32=0);
     std::string fit(std::string,int,int);
+    std::vector<std::string> message_lines();
     std::vector<Flow::Game> games;
     std::map<std::string,SwitchFrontend::Ui::Image> icons;
     SwitchFrontend::Ui::Font font;
@@ -29,5 +30,6 @@ private:
     enum class Screen {Library,Picker,Options,Message} screen{Screen::Library};
     int selected{},cursor{},folder_cursor{};
     bool working{},cancel{};float progress{-1};
+    std::size_t message_scroll{};unsigned frames{};
 };
 }

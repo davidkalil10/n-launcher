@@ -4,6 +4,8 @@
 
 Instale a primeira versão com atualizador pelo SD. Em seguida, **R — Atualizações** consulta `releases/latest/download/update.ini` do repositório oficial. A consulta só acontece quando solicitada; não interrompe o jogo nem baixa atualizações silenciosamente.
 
+O repositório e os assets precisam estar acessíveis publicamente para o console: este fluxo não armazena credenciais do GitHub. Uma release publicada em repositório privado pode ser baixada manualmente com a conta autorizada, mas retorna 404 ao atualizador sem login.
+
 O manifesto versão 1 contém schema, versão, nome do NRO, tamanho e SHA-256. O aplicativo aceita somente uma versão numérica estável mais recente, o asset `n-launcher.nro`, tamanho limitado e HTTPS para GitHub/CDNs explicitamente permitidas. Certificado, hostname e data são verificados; não existe fallback HTTP sem TLS. Falhas de rede ou de relógio são mostradas na interface.
 
 Após a confirmação, o download vai para um arquivo temporário ao lado do NRO em execução, em blocos. Tamanho, hash recebido, hash relido do SD, NRO0/MOD0/OUN0, plataforma Switch 2, assets, nome e versão são conferidos antes da publicação. O aplicativo é atualizado onde foi aberto; jogos, cache, perfis e saves não são destinos do atualizador.

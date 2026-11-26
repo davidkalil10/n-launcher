@@ -54,3 +54,7 @@ Execução de jogo, framebuffer no console, áudio, saves e retorno ao menu aind
 Pokopia splitado executou com imagem, áudio e controles corretos; salvar e carregar também foram confirmados no console. O frontend newlib é mantido como padrão. A confirmação não cobre outros jogos nem o retorno ao hbmenu.
 
 0.0.6 acrescenta 38 verificações sintéticas para manifesto/HTTP, download interrompido, hash incorreto, cancelamento, troca com cópia anterior, confirmação pela versão nova, perfis e migração sem sobrescrita. Testes da GUI incluem persistência de perfil e confirmação do update. Build local dos dois NROs e mapas aprovada. TLS, migração real e atualização de uma versão para outra no hardware permanecem pendentes.
+
+- [CI da release 0.0.6](https://github.com/davidkalil10/nx2-link-enhanced/actions/runs/45876416386), commit 07434d7: testes Linux, build Windows, verificação dos dois NROs, pacote e publicação aprovados. A build da main e a build da branch também passaram.
+- NRO do CI: 20.112.583 bytes; SHA-256 `69ca8dcfa1cf495cad446ac1aa240a6ec28d7f40080ad540fe29af01c09d65d4`. Pacote baixado e hashes da API/SHA256SUMS conferidos; o validador C++ do atualizador aceita o NRO real.
+- ZIP de SD: 6.705.024 bytes, SHA-256 `d35220e59da8e1e6f04efe21afceb5b98eb55ace1fab5d86e1b6a43d9b36d49b`; contém somente aplicativo e licenças. Download sem login depende da visibilidade do repositório; não confundir publicação da release privada com feed público acessível.

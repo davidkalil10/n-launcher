@@ -6,6 +6,7 @@
 #include "nx2link/layout.hpp"
 #include "nx2link/version.hpp"
 #include "launch_trace.hpp"
+#include "fatal_trace.hpp"
 #include "nx2link/input.hpp"
 #include "nx2link/program.hpp"
 #include "nx2link/loader_probe.hpp"
@@ -63,10 +64,13 @@ void work(void* arg){
             if(job.request.action==nlauncher::Action::Prepare||job.request.action==nlauncher::Action::Launch){
                 if(launching)nlauncher::launch_trace("program.begin");
                 auto n=nx2link::prepare_program(input,[&](const std::string& line){
+                    nlauncher::diagnostic_phase(true,"report.menu_log");
                     if(log){std::fprintf(log,"%s\n",line.c_str());std::fflush(log);}
+                    nlauncher::diagnostic_phase(true,"report.launch_trace");
                     if(launching)nlauncher::launch_trace("program.step",line);
                     if(job.cancel.load())throw std::runtime_error("Operação cancelada. O NUP original foi preservado.");
-                    job.status(line);
+                    nlauncher::diagnostic_phase(true,"report.status");job.status(line);
+                    nlauncher::diagnostic_phase(true,"report.done");
                 });
                 if(launching)nlauncher::launch_trace("program.ready");
                 if(launching)nlauncher::launch_trace("cache.begin");
@@ -97,6 +101,7 @@ int main(int argc,char** argv){
     bool startup_error=false;
     try{auto migration=nx2link::migrate_layout("sdmc:/",menu_path);menu_path=migration.executable;nx2link::confirm_update(std::filesystem::u8path(menu_path),NX2LINK_VERSION);menu.start();}
     catch(const std::exception& e){startup_error=true;menu.report("Dados preservados",std::string(e.what())+". Feche o aplicativo para organizar as pastas.");}
+    if(!startup_error&&!diagnostic_start()){startup_error=true;menu.report("Diagnóstico indisponível","Não foi possível preparar o relatório no SD. Confira espaço livre e permissões.");}
     nx2link::UpdateManifest pending_update;
     bool leave=false;
     while(appletMainLoop()){
@@ -126,7 +131,11 @@ int main(int argc,char** argv){
             }else{std::lock_guard<std::mutex> guard(job->lock);menu.report(job->request.action==Action::CheckUpdate||job->request.action==Action::InstallUpdate?"Atualizações":"Preparando e verificando",job->message,true,job->fraction.load());}
         }
         if(leave)break;
+        diagnostic_phase(false,"ui.update");
         auto req=menu.update(k);
+#ifdef NLAUNCHER_DIAGNOSTIC
+        if(req.action==Action::CheckUpdate||req.action==Action::InstallUpdate){menu.report("Build de diagnóstico","Use a versão normal do N Launcher para atualizar.");req={};}
+#endif
         if(req.action==Action::Exit)break;
         if(req.action==Action::Restart){
             const std::string args="\""+menu_path+"\"";
@@ -147,10 +156,10 @@ int main(int argc,char** argv){
             if(R_FAILED(rc)){job.reset();menu.report("Não foi possível iniciar","A operação não começou. Seus arquivos não foram alterados.");}
             else menu.report("Iniciando verificação","Aguarde…",true);
         }
-        menu.draw(*canvas);present(fb,*canvas);
+        diagnostic_phase(false,"ui.draw");menu.draw(*canvas);diagnostic_phase(false,"ui.present");present(fb,*canvas);
     }
     // Do not release shared buffers while a native worker still owns them.
     if(job){job->cancel.store(true);threadWaitForExit(&job->thread);threadClose(&job->thread);}
     if(leave)launch_trace("frontend.exit.for.next_app");
-    framebufferClose(&fb);return 0;
+    diagnostic_stop();framebufferClose(&fb);return 0;
 }

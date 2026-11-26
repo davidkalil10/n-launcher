@@ -24,6 +24,10 @@ try {
     if($LASTEXITCODE -ne 0){throw 'TLS socket test build failed'}
     & build/host/tls-socket-test.exe
     if($LASTEXITCODE -ne 0){throw 'TLS socket tests failed'}
+    & $Compiler -std=c++17 -O2 -static -static-libgcc -static-libstdc++ -Wall -Wextra -Werror -Iinclude tests/test_fixed_report.cpp -o build/host/fixed-report-test.exe
+    if($LASTEXITCODE -ne 0){throw 'Fixed report test build failed'}
+    & build/host/fixed-report-test.exe
+    if($LASTEXITCODE -ne 0){throw 'Fixed report tests failed'}
     $taskTemp=Join-Path $env:TEMP ('n-launcher-app-core-'+[guid]::NewGuid().ToString('N'))
     & build/host/app-core-test.exe $taskTemp
     if($LASTEXITCODE -ne 0){throw 'App core tests failed'}

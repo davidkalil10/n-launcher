@@ -38,6 +38,8 @@ jobs:
           build/app-core-test "$(mktemp -d)"
           g++ -std=c++17 -O2 -Wall -Wextra -Werror -Itests/tls_mock -Iinclude tests/test_tls_socket.cpp -o build/tls-socket-test
           build/tls-socket-test
+          g++ -std=c++17 -O2 -Wall -Wextra -Werror -Iinclude tests/test_fixed_report.cpp -o build/fixed-report-test
+          build/fixed-report-test
           python3 -m pip install -r requirements-build.txt
           python3 tools/build_gui.py --preview --compiler g++
   switch2:
@@ -79,6 +81,10 @@ jobs:
       - name: Build and verify both Switch 2 NROs
         shell: pwsh
         run: ./scripts/build-switch2.ps1 -SdkRoot $env:NX2_SDK -SupportRoot '${{ steps.msys2.outputs.msys2-location }}/usr/bin'
+      - name: Build separate frontend diagnostic for investigation branch
+        if: startsWith(github.ref, 'refs/heads/codex/elliot-')
+        shell: pwsh
+        run: python tools/build_gui.py --diagnostic --compiler "$env:NX2_SDK/devkitA64/bin/aarch64-none-elf-g++.exe" --sdk $env:NX2_SDK --support '${{ steps.msys2.outputs.msys2-location }}/usr/bin'
       - name: Package verified app, updater manifest and licenses
         shell: pwsh
         run: python tools/package_release.py
@@ -103,7 +109,9 @@ jobs:
           $notesPath=Join-Path $env:RUNNER_TEMP 'n-launcher-release-notes.txt'
           $sourceNotes="docs/releases/$($meta.version).md"
           if(Test-Path $sourceNotes){Copy-Item -LiteralPath $sourceNotes -Destination $notesPath}else{Set-Content -LiteralPath $notesPath -Value $notes -Encoding utf8}
-          gh release create $tag dist/n-launcher.nro dist/update.ini dist/SHA256SUMS.txt "dist/$($meta.zip)" --draft --target $env:GITHUB_SHA --title "N Launcher $($meta.version)" --notes-file $notesPath
+          $assets=@('dist/n-launcher.nro','dist/update.ini','dist/SHA256SUMS.txt',"dist/$($meta.zip)")
+          if(Test-Path 'dist/n-launcher-diagnostic.nro'){$assets+='dist/n-launcher-diagnostic.nro';$assets+='dist/n-launcher-diagnostic-symbols.zip'}
+          gh release create $tag @assets --draft --target $env:GITHUB_SHA --title "N Launcher $($meta.version)" --notes-file $notesPath
           if($LASTEXITCODE -ne 0){throw 'Release staging failed; nothing published'}
           if($publish){
             gh release edit $tag --draft=false --latest

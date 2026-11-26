@@ -91,3 +91,9 @@ Instalar a 0.0.9 manualmente, preservando dados, e testar R para consultar a rel
 ## Checkpoint 0.0.10
 
 Orbitals abriu no console após a correção de pacote. Não inferir validação de áudio/saves a partir dessa confirmação. A 0.0.10 muda apenas versão e documentação em relação à 0.0.9; preserva a correção TLS, o runtime e os formatos de dados. Teste solicitado: usar R na 0.0.9 já instalada para baixar/instalar 0.0.10 e A para reabrir. Não pedir cópia manual antes desse teste. O teste de TLS/atualização ainda não foi confirmado pela execução do Orbitals.
+
+## Investigação Elliot — 0.0.10
+
+Crash no frontend antes do runtime. menu-operation.log chegou ao SHA da imagem main; launch.log não persistiu essa etapa. O mesmo main tem hash idêntico no PC e os três módulos passam no preflight local. Não concluir que o NUP esteja danificado ou que memória seja a causa sem relatório. Evidência bruta só em local-tests, ignorada no Git.
+
+Branch codex/elliot-fatal-diagnostics, docs/ELLIOT_DIAGNOSTIC.md: build separada, sem alterar release pública. fatal_trace registra heap real e exceções com FS nativo e buffer fixo; instrumentação ligada apenas por --diagnostic. Próximo passo é uma tentativa no hardware e coleta dos relatórios, não publicar uma correção não demonstrada. README da main já foi revisado novamente: rótulos em inglês e ícone no lugar da captura em português.

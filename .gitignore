@@ -1,0 +1,17 @@
+/build/
+/dist/
+/local-tests/
+/vendor/
+__pycache__/
+*.nup
+*.nup/
+*.nsp
+*.nsz
+*.xci
+*.nca
+*.keys
+*.sav
+*.bin
+*.nro
+*.elf
+*.map

@@ -1,0 +1,19 @@
+{
+  "packageName": "windows-sdk",
+  "version": "20261125.1",
+  "file": "windows-sdk.tar.gz",
+  "sha256": "dd3f1a8503f1d68b6129159a6b07b40821ff96c62ced15eef24622ec7cca736b",
+  "bytes": 219718740,
+  "format": "tar-gzip-devkitpro-root",
+  "packages": {
+    "devkitA64": "r30-1",
+    "gcc": "16.1.0-1",
+    "switch-tools": "1.13.1-1",
+    "libnx": "4.12.0-1",
+    "libounce": "20261125-1",
+    "ouncevk": "20261123.1-1",
+    "libkaihen": "20261123-1"
+  },
+  "provenance": "Official devkitPro and ouncebrew Windows packages, downloaded with mandatory signature verification. Full package details and checksums are included in devkitpro/nx2-ci-receipts. No games, keys or saves.",
+  "githubRelease": "windows-sdk-20261125.1"
+}

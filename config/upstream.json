@@ -1,0 +1,9 @@
+{
+  "repository": "https://github.com/Olmectron/nx2-relink",
+  "tag": "v0.1.11",
+  "commit": "c72a1eca45ab6bbfbbb7eba8a8e56447db53562d",
+  "license": "MIT",
+  "runtimeImported": false,
+  "runtimeCompatibilityBaseline": "kaiHEN 20261117.1",
+  "notes": "Pinned research baseline. The probe does not yet load or run game modules."
+}

@@ -7,7 +7,8 @@
 - [x] TOC SHA-256, limites de memória e inventário de pacotes.
 - [x] Fixtures sintéticas: partes faltantes/vazias, tamanho, hash, limites.
 - [x] Fonte do NRO de diagnóstico e build com verificação de startup/link map.
-- [ ] Confirmar leitura do Pokopia splitado no console.
+- [x] Elliot Demo inspecionado no console (1 pacote, 49 arquivos).
+- [ ] Confirmar leitura da cópia NUP v1 do Pokopia splitado no console; a pasta examinada no SD era outro container PFS0/NCA.
 
 ## M1 — Prova do carregador (decisão de viabilidade)
 

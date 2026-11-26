@@ -25,3 +25,7 @@ O teste de Pokopia via PC exibiu imagem com ajuste de memória, mas ficou sem so
 ## Limites operacionais
 
 Não editar o Eden, builder Windows, dumps ou saves. Não enviar jogos/chaves/saves a serviços de build. Não conectar ao console usando um IP antigo sem confirmação da sessão atual. Não apagar caches, backups ou releases de outros projetos. Validar pacote e host tests antes de qualquer teste de execução no hardware.
+
+## Último diagnóstico
+
+Elliot Demo passou na inspeção no console. A pasta Pokopia no SD e a pasta local têm nomes parecidos, mas cabeçalhos e tamanhos diferentes: SD = PFS0/NCA; local = NUP v1 válido. Não reescrever o leitor splitado por esse motivo e não presumir que o conteúdo do SD corresponde ao arquivo que abriu no builder PC. Ver docs/LEARNINGS.md.

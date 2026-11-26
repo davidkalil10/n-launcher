@@ -17,3 +17,12 @@ Esses sinais não provam defeito no split. O caminho do Eden emula/traduz gráfi
 - Preservar a exceção SVC 0x36 do upstream e verificar limites de módulos, TLS e publicação de código.
 - O binário NRO precisa de startup OUN0 plataforma 2/versão 1 real, não apenas da sequência de caracteres em algum ponto do arquivo.
 - A TOC e os arquivos podem atravessar limites de partes. Testes não devem assumir que só os dados grandes cruzam fronteiras.
+
+## Primeira inspeção no console — 2026-11-26
+
+- Elliot Demo: 1 parte, 1 pacote e 49 arquivos; TOC SHA-256 válida, conforme teste no console.
+- Pokopia local: pasta splitada NUP v1 (00 = 4.294.901.760 bytes; 01 = 2.726.310.201 bytes), 2 pacotes e 41 arquivos. Inspeção local e leitura cruzando a fronteira entre partes aprovadas.
+- Pokopia no SD: pasta com nome parecido, mas assinatura PFS0 e referências a NCA. 00 = 4.294.901.760 bytes; 01 = 3.003.078.352 bytes. Os tamanhos e as assinaturas demonstram que não é a mesma sequência de bytes da cópia local validada.
+- A rejeição pela assinatura não demonstra falha na concatenação das partes. O leitor atual aceita NUP v1; PFS0/NCA exige outro caminho de leitura, não basta tratar o cabeçalho como NUP.
+- Não classificar automaticamente PFS0 como arquivo renomeado ou dump inválido. Informar o formato detectado e os limites do leitor.
+- Para testar a cópia NUP já validada, copiar a pasta splitada local correta preservando 00/01; não juntar partes nem alterar dumps para contornar a detecção.

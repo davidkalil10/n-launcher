@@ -41,3 +41,10 @@ Execução de jogo, framebuffer no console, áudio, saves e retorno ao menu aind
 - A suíte Linux inclui travessia de parte acima de 4 GiB usando arquivo esparso sintético; esse caso é omitido no Windows para evitar alocação física acidental.
 - NRO do CI: 20.104.391 bytes; SHA-256 `52787168534674635e5fb56656dfb72a183da94b2c092840b07a04d476457028`. Download conferido contra o digest da API e SHA256SUMS.txt; NACP confirma N Launcher 0.0.4.
 - Prévia da biblioteca no README vem do mesmo renderer da GUI, com fixtures próprias. Nenhum dado de jogo foi enviado ao CI.
+
+## Diagnóstico 0.0.5
+
+- Cache da tentativa de console: 11 marcadores completos e tamanhos correspondentes, sem pastas parciais. A abertura isolada encerrou depois do relatório da imagem main, sem iniciar o runtime.
+- Frontend alterado para libounce_core/newlib, com verificação explícita do mapa. Runtime e formato de cache mantidos; causa no alocador ainda é hipótese.
+- 28 testes de leitura/preparação e verificação dos NROs aprovados localmente; teste de hardware pendente.
+- Pacote N Launcher - Diagnostico 0.0.5: 19.989.703 bytes; SHA-256 `383d5057539d19d76379ca8f6e405502e943ae127e9eebd60c3d7d323cba5475`.

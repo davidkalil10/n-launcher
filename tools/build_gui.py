@@ -8,7 +8,7 @@ from prepare_flow import prepare
 from bake_ui_font import bake
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('--compiler',required=True);p.add_argument('--preview',action='store_true');p.add_argument('--sdk');p.add_argument('--support',default='');a=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('--compiler',required=True);p.add_argument('--preview',action='store_true');p.add_argument('--sdk');p.add_argument('--support',default='');p.add_argument('--allocator',choices=['newlib','mimalloc'],default='newlib');a=p.parse_args()
     prepare();bake(ROOT/'build/flow/menu/source/font_baked.h');os.chdir(ROOT)
     env=dict(os.environ);env['PATH']=str(Path(a.compiler).parent)+os.pathsep+a.support+os.pathsep+env.get('PATH','')
     def run(args):subprocess.run([str(s) for s in args],env=env,check=True)
@@ -37,7 +37,11 @@ def main():
         blob=out/'runtime_blob.S';blob.write_text('.section .rodata.nl_runtime,"a"\n.balign 16\n.global nl_runtime_begin\n.global nl_runtime_end\nnl_runtime_begin:\n.incbin "dist/n-launcher-game.nro"\nnl_runtime_end:\n',encoding='ascii')
         obj=out/'runtime_blob.o';cc=Path(a.compiler).with_name('aarch64-none-elf-gcc.exe')
         run([cc,'-c',blob,'-o',obj])
-        run([a.compiler,*flags,*common,'src/program.cpp','src/cache.cpp','src/loader_probe.cpp','src/gui_switch.cpp','build/switch2/zstd.o',obj,f'-L{sdk}/libounce/lib',f'-L{sdk}/portlibs/switch2/lib','-lkaihen','-lnx','-Wl,--gc-sections',f'-Wl,-Map,{mapfile}','-o',elf])
+        run([a.compiler,*flags,*common,'src/program.cpp','src/cache.cpp','src/loader_probe.cpp','src/gui_switch.cpp','src/launch_trace.cpp','build/switch2/zstd.o',obj,f'-L{sdk}/libounce/lib',f'-L{sdk}/portlibs/switch2/lib','-lkaihen','-lounce_core' if a.allocator=='newlib' else '-lnx','-Wl,--gc-sections',f'-Wl,-Map,{mapfile}','-o',elf])
+        map_text=mapfile.read_text(errors='replace')
+        if a.allocator=='newlib' and ('libounce_core.a' not in map_text or 'malloc_init.o' in map_text or '__mi_theap_default' in map_text):
+            raise RuntimeError('Frontend allocator does not match requested newlib baseline')
+        print('Frontend allocator:',a.allocator)
         version=(ROOT/'include/nx2link/version.hpp').read_text().split('"')[1]
         run([f'{sdk}/tools/bin/nacptool.exe','--create','N Launcher','David Kalil Braga',version,out/'app.nacp'])
         from PIL import Image,ImageDraw,ImageFont

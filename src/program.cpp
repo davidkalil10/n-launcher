@@ -87,9 +87,18 @@ unsigned prepare_program(const Input& input,const std::function<void(const std::
     for(const auto& name:order) {
         auto it=files.find(name);if(it==files.end())continue;
         report("Preparing "+name+" (NUP hash, decompress, NSO segment hashes)...");
-        auto raw=archive.read(it->second);auto module=prepare_nso(raw);
-        auto digest=digest256(module.image.data(),module.image.size());
-        std::ostringstream line;line<<"module="<<name<<" image_bytes="<<module.image.size()<<" end="<<module.end<<" mod0="<<module.mod0<<" dynamic="<<module.dynamic<<" object="<<module.module_object<<" svcs="<<module.svcs.size()<<" image_sha256="<<hex(digest.data(),digest.size());report(line.str());++count;
+        {
+            auto raw=archive.read(it->second);
+            {
+                auto module=prepare_nso(raw);
+                auto digest=digest256(module.image.data(),module.image.size());
+                {std::ostringstream line;line<<"module="<<name<<" image_bytes="<<module.image.size()<<" end="<<module.end<<" mod0="<<module.mod0<<" dynamic="<<module.dynamic<<" object="<<module.module_object<<" svcs="<<module.svcs.size()<<" image_sha256="<<hex(digest.data(),digest.size());report(line.str());}
+                report("release.image.begin module="+name);
+            }
+            report("release.image.done module="+name);
+            report("release.source.begin module="+name);
+        }
+        report("release.source.done module="+name);++count;
     }
     report("PASS preparation only; no mapping, runtime hooks, game entrypoint, RomFS or save access");return count;
 }

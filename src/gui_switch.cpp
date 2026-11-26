@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #include <switch.h>
 #include "gui.hpp"
+#include "launch_trace.hpp"
 #include "nx2link/input.hpp"
 #include "nx2link/program.hpp"
 #include "nx2link/loader_probe.hpp"
@@ -17,16 +18,21 @@
 extern "C" const unsigned char nl_runtime_begin[],nl_runtime_end[];
 namespace {
 void install_runtime(){
+    nlauncher::launch_trace("runtime.install.begin");
     namespace fs=std::filesystem;
     fs::create_directories("sdmc:/switch/nx2-link/.runtime");
+    nlauncher::launch_trace("runtime.directory.ready");
     const fs::path final="sdmc:/switch/nx2-link/.runtime/n-launcher-game.nro",temp="sdmc:/switch/nx2-link/.runtime/n-launcher-game.nro.tmp",old="sdmc:/switch/nx2-link/.runtime/n-launcher-game.nro.previous";
-    auto size=static_cast<size_t>(nl_runtime_end-nl_runtime_begin);
+    auto size=static_cast<size_t>(reinterpret_cast<uintptr_t>(nl_runtime_end)-reinterpret_cast<uintptr_t>(nl_runtime_begin));
+    nlauncher::launch_trace("runtime.embedded.ready",std::to_string(size));
     {std::error_code ec;if(fs::file_size(final,ec)==size&&!ec){std::ifstream in(final,std::ios::binary);std::vector<uint8_t> existing(size);in.read(reinterpret_cast<char*>(existing.data()),std::streamsize(size));if(in&&nx2link::digest256(existing.data(),existing.size())==nx2link::digest256(nl_runtime_begin,size))return;}}
     {std::ofstream out(temp,std::ios::binary|std::ios::trunc);out.write(reinterpret_cast<const char*>(nl_runtime_begin),std::streamsize(size));out.close();if(!out)throw std::runtime_error("Não foi possível gravar o carregador no SD");}
+    nlauncher::launch_trace("runtime.file.written");
     bool previous=fs::exists(final);
     if(previous){fs::remove(old);fs::rename(final,old);}
     try{fs::rename(temp,final);}catch(...){if(previous)fs::rename(old,final);throw;}
     if(previous)fs::remove(old);
+    nlauncher::launch_trace("runtime.install.ready");
 }
 struct Job {
     Thread thread{};std::mutex lock;std::atomic<bool> done{},cancel{};
@@ -37,29 +43,37 @@ void work(void* arg){
     auto& job=*static_cast<Job*>(arg);
     FILE* log=nullptr;
     try{
+        const bool launching=job.request.action==nlauncher::Action::Launch;
+        if(launching)nlauncher::launch_trace("worker.started");
         std::filesystem::create_directories("sdmc:/switch/nx2-link/logs");
         log=std::fopen("sdmc:/switch/nx2-link/logs/menu-operation.log","wb");
         if(job.request.action==nlauncher::Action::Probe){job.status("Testando o carregador da sessão ativa…");job.result=nx2link::run_loader_probe();}
         else{
             nx2link::Input input{std::filesystem::u8path(Flow::OnCard(job.request.path))};
             if(job.request.action==nlauncher::Action::Prepare||job.request.action==nlauncher::Action::Launch){
+                if(launching)nlauncher::launch_trace("program.begin");
                 auto n=nx2link::prepare_program(input,[&](const std::string& line){
                     if(log){std::fprintf(log,"%s\n",line.c_str());std::fflush(log);}
+                    if(launching)nlauncher::launch_trace("program.step",line);
                     if(job.cancel.load())throw std::runtime_error("Operação cancelada. O NUP original foi preservado.");
                     job.status(line);
                 });
+                if(launching)nlauncher::launch_trace("program.ready");
+                if(launching)nlauncher::launch_trace("cache.begin");
                 auto cached=nx2link::prepare_cache(input,"sdmc:/switch/nx2-link/content",[&](const std::string& message,double value){
                     if(job.cancel.load())throw std::runtime_error("Preparação cancelada. O NUP original foi preservado.");
                     job.status(message);job.fraction.store(float(value));
                 });
+                if(launching)nlauncher::launch_trace("cache.ready",std::to_string(cached));
                 if(job.cancel.load())throw std::runtime_error("Preparação cancelada antes de iniciar o jogo. Cache verificado preservado.");
                 if(job.request.action==nlauncher::Action::Launch)install_runtime();
                 job.result="Programa preparado: "+std::to_string(n)+" módulos.\nCache: "+std::to_string(cached)+" arquivos grandes verificados.";
             }else{auto info=nx2link::inspect(input);job.result="Índice SHA-256 válido.\n"+std::to_string(input.parts().size())+" partes · "+std::to_string(info.packages.size())+" pacotes · "+std::to_string(info.files)+" arquivos.\nO conteúdo de cada arquivo ainda não foi verificado.";}
         }
         job.success=true;
-    }catch(const std::exception& e){job.result=e.what();}
+    }catch(const std::exception& e){job.result=e.what();if(job.request.action==nlauncher::Action::Launch)nlauncher::launch_trace("worker.error",job.result);}
     if(log){std::fprintf(log,"%s\n",job.result.c_str());std::fclose(log);}
+    if(job.request.action==nlauncher::Action::Launch)nlauncher::launch_trace("worker.finished",job.success?"success":"failed");
     job.done.store(true);
 }
 void present(Framebuffer& fb,SwitchFrontend::Ui::Canvas& c){u32 pitch;auto* out=static_cast<u8*>(framebufferBegin(&fb,&pitch));for(int y=0;y<c.Height();++y)std::memcpy(out+y*pitch,c.Data()+y*c.Width(),c.Width()*4);framebufferEnd(&fb);}
@@ -83,7 +97,10 @@ int main(int argc,char** argv){
                 if(job->success&&job->request.action==Action::Launch){
                     const auto loader=Flow::OnCard(Flow::kGameNro);
                     const std::string args="\""+loader+"\" \""+Flow::OnCard(job->request.path)+"\" \"menu="+menu_path+"\"";
-                    if(R_SUCCEEDED(envSetNextLoad(loader.c_str(),args.c_str())))leave=true;
+                    launch_trace("handoff.begin",loader);
+                    const auto next_rc=envSetNextLoad(loader.c_str(),args.c_str());
+                    launch_trace("handoff.result",std::to_string(next_rc));
+                    if(R_SUCCEEDED(next_rc))leave=true;
                     else{job->success=false;job->result="O hbmenu não aceitou iniciar o carregador. Consulte os registros.";}
                 }
                 menu.finish_job(job->success?"Verificação concluída":"Operação interrompida",job->result+"\nRegistro: /switch/nx2-link/logs/");job.reset();
@@ -98,6 +115,8 @@ int main(int argc,char** argv){
             menu.report("Última operação",tail.empty()?"Nenhum registro disponível ainda.":tail);
         }else if(req.action==Action::Launch&&(!envHasNextLoad()||smGetServiceOverride(smEncodeName("ldr:ro"))==INVALID_HANDLE)){
             menu.report("Sessão necessária","Abra pelo hbmenu com kaiHEN ativo. Esta homebrew utiliza a sessão existente; ela não instala ou reativa o kaiHEN.");
+        }else if(req.action==Action::Launch&&!begin_launch_trace(Flow::OnCard(req.path))){
+            menu.report("Não foi possível iniciar","Não foi possível preservar o registro de abertura no SD. Confira o espaço livre e os arquivos de logs.");
         }else if(req.action!=Action::None){
             job=std::make_unique<Job>();job->request=req;
             auto rc=threadCreate(&job->thread,work,job.get(),nullptr,0x40000,0x2c,-2);
@@ -109,5 +128,6 @@ int main(int argc,char** argv){
     }
     // Do not release shared buffers while a native worker still owns them.
     if(job){job->cancel.store(true);threadWaitForExit(&job->thread);threadClose(&job->thread);}
+    if(leave)launch_trace("frontend.exit.for.runtime");
     framebufferClose(&fb);return 0;
 }

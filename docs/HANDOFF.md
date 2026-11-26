@@ -50,3 +50,13 @@ Não acessar um IP antigo do console sem confirmação da sessão atual. Não re
 ## Limitações abertas
 
 Execução, áudio, saves e retorno ainda pendentes nesta integração; preflight ZBIC não implementado; formatos criptografados PFS0/NCA não suportados; suporte adicional `.nup.00` está no leitor, mas não no catálogo gráfico. A reutilização de cache confere marcador e tamanhos, sem rehash completo. Cancelar refaz o arquivo de staging na próxima tentativa, sem retomada por bloco. Perfil de memória e gerenciamento/limpeza de cache precisam de interface própria. Não publicar uma release estável apenas porque a build passou.
+
+## Investigação de fechamento — diagnóstico 0.0.5
+
+Branch `codex/diagnose-preflight-exit`. A tentativa isolada do Pokopia em 0.0.4 encerrou depois do relatório SHA-256 da imagem main, antes do próximo módulo, do cache e da instalação do loader. Isso delimita a falha ao preflight/GUI; não confirma defeito do NUP nem prova uma causa específica no alocador. A pasta .runtime e os logs de jogo não existiam. Os 11 caches NLC1 estavam completos por marcador e tamanho (6.526.474.702 bytes; nenhum rehash integral pelo FTP).
+
+A build de diagnóstico usa libounce_core/newlib apenas no frontend, alternativa documentada pelo próprio SDK, em lugar de mimalloc. O runtime, os NSOs, o SDK fixado e o formato de cache não foram trocados. `tools/build_gui.py --allocator mimalloc` permite comparação controlada; o padrão diagnóstico é newlib. O mapa confirma core e ausência de mimalloc. Não atribuir a causa ao SDK antes do teste no console.
+
+`src/program.cpp` agora delimita e registra a liberação da imagem e da fonte de cada módulo. `src/launch_trace.cpp` preserva launch.log/launch.previous.log, fecha e sincroniza cada etapa e informa memória do processo, antes/depois dos módulos, do cache, da instalação e do handoff. A saída do processo sem novas linhas deixa o último ponto confirmado. Não executar outro jogo antes de copiar os registros da tentativa relevante.
+
+28 testes de leitura/programa e verificação estrita dos NROs passaram localmente. A correção de memória e a execução ainda dependem de validação. Não pedir nova preparação de gigabytes: o cache publicado mantém os mesmos hashes, marcador e tamanho de parte e deve ser reutilizado. Jogos e saves do SD foram apenas lidos durante o diagnóstico.

@@ -66,6 +66,8 @@ class Program(unittest.TestCase):
         raw,sha=nso(True,True);self.assertIn(sha,self.run_program(nup([(0,0,{'main':raw})])))
     def test_latest_update_ignores_unusable_base(self):
         raw,sha=nso();out=self.run_program(nup([(0,0,{'main':b'bad base'}),(1,65536,{'main':raw})]));self.assertIn('version=65536',out);self.assertIn(sha,out)
+    def test_update_wins_tied_version_independent_of_package_order(self):
+        raw,sha=nso();out=self.run_program(nup([(1,0,{"main":raw}),(0,0,{"main":b"bad base"})]));self.assertIn(sha,out)
     def test_skip_dlc(self):
         raw,_=nso();self.run_program(nup([(0,0,{'main':raw}),(2,999999,{'main':b'bad dlc'})]))
     def test_nup_payload_hash(self):

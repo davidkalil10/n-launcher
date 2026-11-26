@@ -71,7 +71,7 @@ public:
             auto dir=le(toc_.data()+0x30+i*0x40+12,4);if(dir==0xffffffff)continue;
             std::map<std::string,uint64_t> entries;std::set<uint32_t> active;walk(uint32_t(dir),"",active,entries);
             if(!entries.count("main"))continue;
-            if(!found||p.version>=selected.version){selected=p;chosen=std::move(entries);found=true;}
+            if(!found||p.version>selected.version||(p.version==selected.version&&p.kind>=selected.kind)){selected=p;chosen=std::move(entries);found=true;}
         }
         if(!found)bad("No main module in matching program packages");
         return {selected,std::move(chosen)};

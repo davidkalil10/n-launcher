@@ -4,6 +4,7 @@
   "commit": "f8745da6ff1ad1e7bab384bd1f9d742439278e99",
   "license": "BSD-3-Clause (LICENSE)",
   "generation": "python build/single_file_libs/combine.py -r lib -x legacy/zstd_legacy.h -o zstddeclib.c build/single_file_libs/zstddeclib-in.c",
-  "decoder_sha256": "06401e2078c8111752bc9ec351b995026c467a4b5df1f1602dbad0b5de72384b",
-  "changes": "Generated decoder and original public header; no local source edits."
+  "decoder_sha256": "5eb38abe0a7eea13674b312a006df72002d4192f0f0b4d09e6f03fb927a1f3d0",
+  "changes": "Generated decoder and original public header; no local source edits.",
+  "lineEndings": "LF (generated Windows output normalized before hashing)"
 }

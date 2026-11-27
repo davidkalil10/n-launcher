@@ -30,6 +30,12 @@ int main(int argc,char** argv){
     keys={};keys.minus=true;disabled.update(keys);keys={};keys.y=true;disabled.update(keys);auto persisted=Flow::ReadSettings(Flow::kMenuCfg);assert(persisted["check_updates"]=="0"&&persisted["other_setting"]=="keep");
     keys={};keys.r=true;assert(disabled.update(keys).action==nlauncher::Action::CheckUpdate);disabled.report("Auto","",true);disabled.finish_auto_check(true);assert(disabled.in_library()&&!disabled.busy());
     keys={};keys.l=true;disabled.update(keys);keys={};keys.a=true;disabled.update(keys);keys={};keys.b=true;disabled.update(keys);nlauncher::Menu enabled;enabled.start();assert(enabled.startup_updates_enabled());
+    assert(!enabled.is_english());
+    keys={};keys.l=true;enabled.update(keys);keys={};keys.down=true;enabled.update(keys);keys={};keys.a=true;enabled.update(keys);assert(enabled.is_english());keys={};keys.b=true;enabled.update(keys);
+    auto langCfg=Flow::ReadSettings(Flow::kMenuCfg);assert(langCfg["language"]=="en"&&langCfg["check_updates"]=="1"&&langCfg["other_setting"]=="keep");
+    nlauncher::Menu englishMenu;englishMenu.start();assert(englishMenu.is_english());
+    keys={};keys.l=true;englishMenu.update(keys);keys={};keys.down=true;englishMenu.update(keys);keys={};keys.right=true;englishMenu.update(keys);assert(!englishMenu.is_english());keys={};keys.b=true;englishMenu.update(keys);
+    assert(Flow::ReadSettings(Flow::kMenuCfg)["language"]=="pt");
     enabled.report("Auto","",true);enabled.finish_auto_check(false);assert(enabled.in_library()&&!enabled.busy());
-    std::cout<<"PASS: six synthetic titles, split metadata, accents, actions, busy cancellation, profile persistence, startup-check policy, preferences and update confirmation\n";
+    std::cout<<"PASS: six synthetic titles, split metadata, accents, actions, busy cancellation, profile persistence, startup-check policy, language toggle, preferences and update confirmation\n";
 }

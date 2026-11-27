@@ -35,7 +35,7 @@ Data from the old `/switch/nx2-link/` directory is migrated to `n-launcher` by r
 
 ## Controls
 
-The application interface currently uses Portuguese. All control descriptions below are in English.
+The application interface supports **Português** and **English**, switchable anytime under **L — App settings** (`language=pt` / `language=en` in `menu.cfg`).
 
 | Button | Action |
 |---|---|

@@ -44,7 +44,7 @@ std::string Menu::fit(std::string s,int width,int size){
 }
 void Menu::save(){auto cfg=Flow::ReadSettings(Flow::kMenuCfg);cfg["games"]=folder;Flow::WriteSettings(Flow::kMenuCfg,cfg);}
 void Menu::scan(){games=Flow::ScanGames(folder);selected=std::min(selected,std::max(0,int(games.size())-1));icons.clear();}
-void Menu::start(){auto cfg=Flow::ReadSettings(Flow::kMenuCfg);automatic_updates=cfg["check_updates"]!="0";startup_check_pending=automatic_updates;if(cfg.count("games")&&Flow::IsFolder(cfg["games"]))folder=cfg["games"];scan();}
+void Menu::start(){auto cfg=Flow::ReadSettings(Flow::kMenuCfg);automatic_updates=cfg["check_updates"]!="0";startup_check_pending=automatic_updates;english=cfg["language"]=="en";if(cfg.count("games")&&Flow::IsFolder(cfg["games"]))folder=cfg["games"];scan();}
 void Menu::folders(){dirs=Flow::ListFolders(picker);dirs.erase(std::remove_if(dirs.begin(),dirs.end(),[](const std::string& s){auto tail=s.size()>=4?s.substr(s.size()-4):"";std::transform(tail.begin(),tail.end(),tail.begin(),[](unsigned char c){return std::tolower(c);});return tail==".nup";}),dirs.end());folder_cursor=0;}
 std::vector<std::string> Menu::message_lines(){
     std::vector<std::string> lines;std::istringstream input(detail);std::string paragraph;
@@ -56,14 +56,14 @@ void Menu::finish_job(std::string t,std::string d){report(std::move(t),std::move
 Request Menu::request(Action action){
     if(action==Action::None)return {};
     try{auto cfg=game_settings(games[selected]);return {action,games[selected].path,{nx2link::parse_memory(cfg["memory"],true),nx2link::parse_memory(cfg["room"],false)}};}
-    catch(const std::exception& e){report("Perfil de memória inválido",std::string(e.what())+". Abra Memória por jogo para restaurar o automático.");return {};}
+    catch(const std::exception& e){report(tr("Perfil de memória inválido","Invalid memory profile"),std::string(e.what())+tr(". Abra Memória por jogo para restaurar o automático.",". Open Per-game memory to restore Automatic."));return {};}
 }
 void Menu::open_memory(){
-    if(games[selected].id.empty()){report("Título não identificado","Verifique o NUP antes de configurar o perfil.");return;}
+    if(games[selected].id.empty()){report(tr("Título não identificado","Unidentified title"),tr("Verifique o NUP antes de configurar o perfil.","Inspect the NUP before configuring its profile."));return;}
     try{auto cfg=game_settings(games[selected]);
         try{memory={nx2link::parse_memory(cfg["memory"],true),nx2link::parse_memory(cfg["room"],false)};}catch(...){memory={};}
         memory_cursor=0;screen=Screen::Memory;
-    }catch(const std::exception& e){report("Não foi possível abrir o perfil",e.what());}
+    }catch(const std::exception& e){report(tr("Não foi possível abrir o perfil","Could not open profile"),e.what());}
 }
 void Menu::offer_update(const std::string& version,uint64_t size){working=false;update_version=version;update_size=size;screen=Screen::Update;}
 void Menu::offer_restart(){working=false;screen=Screen::Restart;}
@@ -72,15 +72,23 @@ bool Menu::begin_startup_check(Action requested,bool operation_active){
     if(!startup_check_pending||operation_active||!in_library()||requested!=Action::None)return false;
     startup_check_pending=false;return true;
 }
-void Menu::finish_auto_check(bool failed,bool canceled){working=false;cancel=false;screen=Screen::Library;update_notice=failed&&!canceled?"Não foi possível verificar atualizações. R permite tentar novamente.":"";}
+void Menu::finish_auto_check(bool failed,bool canceled){working=false;cancel=false;screen=Screen::Library;update_notice=failed&&!canceled?tr("Não foi possível verificar atualizações. R permite tentar novamente.","Could not check for updates. Press R to try again."):"";}
 Request Menu::update(Keys k){
     if(working){if(k.b)cancel=true;return {};}
     if(screen==Screen::Settings){
         if(k.b){screen=Screen::Library;return {};}
+        if(k.up||k.down)settings_cursor=1-settings_cursor;
         if(k.a||k.left||k.right){
-            auto cfg=Flow::ReadSettings(Flow::kMenuCfg);cfg["check_updates"]=automatic_updates?"0":"1";
-            if(Flow::WriteSettings(Flow::kMenuCfg,cfg))automatic_updates=!automatic_updates;
-            else report("Não foi possível salvar","A preferência anterior foi mantida.");
+            auto cfg=Flow::ReadSettings(Flow::kMenuCfg);
+            if(settings_cursor==0){
+                cfg["check_updates"]=automatic_updates?"0":"1";
+                if(Flow::WriteSettings(Flow::kMenuCfg,cfg))automatic_updates=!automatic_updates;
+                else report(tr("Não foi possível salvar","Could not save"),tr("A preferência anterior foi mantida.","The previous preference was kept."));
+            }else{
+                cfg["language"]=english?"pt":"en";
+                if(Flow::WriteSettings(Flow::kMenuCfg,cfg))english=!english;
+                else report(tr("Não foi possível salvar","Could not save"),tr("A preferência anterior foi mantida.","The previous preference was kept."));
+            }
         }
         return {};
     }
@@ -97,7 +105,7 @@ Request Menu::update(Keys k){
         if(k.up||k.down)memory_cursor=1-memory_cursor;
         if(k.left||k.right){auto& v=memory_cursor==0?memory.game_mb:memory.loader_mb;v=nx2link::step_memory(v,k.right?1:-1,memory_cursor==0);}
         if(k.x)memory={};
-        if(k.a){try{save_memory(games[selected],memory);report("Perfil salvo","As reservas serão usadas ao abrir este jogo. O cache existente será mantido.");}catch(const std::exception& e){report("Não foi possível salvar",std::string(e.what())+". O perfil anterior foi preservado.");}}
+        if(k.a){try{save_memory(games[selected],memory);report(tr("Perfil salvo","Profile saved"),tr("As reservas serão usadas ao abrir este jogo. O cache existente será mantido.","These reservations will be used when launching this game. Existing cache is preserved."));}catch(const std::exception& e){report(tr("Não foi possível salvar","Could not save"),std::string(e.what())+tr(". O perfil anterior foi preservado.",". The previous profile was preserved."));}}
         return {};
     }
     if(screen==Screen::Picker){
@@ -117,7 +125,7 @@ Request Menu::update(Keys k){
     }
     if(k.plus)return {Action::Exit,{}};
     if(k.r){update_notice.clear();return {Action::CheckUpdate,{},{}};}
-    if(k.l){screen=Screen::Settings;return {};}
+    if(k.l){settings_cursor=0;screen=Screen::Settings;return {};}
     if(k.minus){picker=Flow::IsFolder(folder)?folder:"/";folders();screen=Screen::Picker;return {};}
     if(k.x){scan();return {};}
     if(games.empty())return {};
@@ -126,7 +134,7 @@ Request Menu::update(Keys k){
     if(k.down)selected=std::min(selected+3,int(games.size())-1);
     if(k.up)selected=std::max(0,selected-3);
     if(k.y){screen=Screen::Options;cursor=0;}
-    if(k.a){if(!games[selected].error.empty()){report("Não foi possível abrir",games[selected].error);return {};}return request(Action::Launch);}
+    if(k.a){if(!games[selected].error.empty()){report(tr("Não foi possível abrir","Could not open"),games[selected].error);return {};}return request(Action::Launch);}
     return {};
 }
 void Menu::draw(Canvas& c){
@@ -137,16 +145,16 @@ void Menu::draw(Canvas& c){
     c.FillRoundRect(20,132,47,47,12,MakeColor(36,72,69));
     for(int dx:{0,12})for(int dy:{0,12})c.FillRoundRect(32+dx,144+dy,9,9,2,accent);
     text(c,28,687,"SD",16,muted);
-    text(c,116,53,"N Launcher",29);text(c,116,80,"Sua biblioteca, direto no console.",16,muted);
+    text(c,116,53,"N Launcher",29);text(c,116,80,tr("Sua biblioteca, direto no console.","Your library, right on the console."),16,muted);
     c.FillRoundRect(1040,31,202,34,17,panel);text(c,1058,54,"SWITCH 2  /  " NX2LINK_VERSION,14,accent);
     c.FillRect(115,101,1128,1,line);
-    text(c,116,139,"BIBLIOTECA",13,accent);text(c,875,139,"L  Ajustes",14,muted);
-    text(c,1050,139,std::to_string(games.size())+" jogos encontrados",14,muted);
+    text(c,116,139,tr("BIBLIOTECA","LIBRARY"),13,accent);text(c,875,139,tr("L  Ajustes","L  Settings"),14,muted);
+    text(c,1050,139,std::to_string(games.size())+tr(" jogos encontrados"," games found"),14,muted);
     if(games.empty()){
-        text(c,155,260,"Sua biblioteca começa aqui",36);
-        text(c,155,305,"Escolha a pasta onde estão seus jogos NUP.",22,muted);
-        text(c,155,344,"Arquivos completos e pastas com partes 00, 01… são aceitos.",18,muted);
-        c.FillRoundRect(155,387,260,52,12,accent);text(c,174,421,"−  Escolher pasta",22,bg);
+        text(c,155,260,tr("Sua biblioteca começa aqui","Your library starts here"),36);
+        text(c,155,305,tr("Escolha a pasta onde estão seus jogos NUP.","Choose the folder containing your NUP games."),22,muted);
+        text(c,155,344,tr("Arquivos completos e pastas com partes 00, 01… são aceitos.","Single files and split folders (00, 01…) are supported."),18,muted);
+        c.FillRoundRect(155,387,260,52,12,accent);text(c,174,421,tr("−  Escolher pasta","−  Choose folder"),22,bg);
     }else{
         const int page=selected/6*6;
         for(int i=page;i<std::min(page+6,int(games.size()));++i){
@@ -159,52 +167,64 @@ void Menu::draw(Canvas& c){
             c.FillRoundRect(x+14,y+14,130,130,12,MakeColor(35,48,63));
             if(!it->second.Empty())image(c,it->second,x+18,y+18,122,122);
             else{text(c,x+58,y+95,"N",49,accent);}
-            text(c,x+158,y+40,g.error.empty()?"PRONTO PARA VERIFICAR":"VERIFICAR ARQUIVO",10,g.error.empty()?accent:MakeColor(255,171,123));
+            text(c,x+158,y+40,g.error.empty()?tr("PRONTO PARA VERIFICAR","READY TO VERIFY"):tr("VERIFICAR ARQUIVO","CHECK FILE"),10,g.error.empty()?accent:MakeColor(255,171,123));
             auto lines=WrapLines(font,g.title,21,184);int ty=y+73;
             for(std::size_t j=0;j<std::min<std::size_t>(3,lines.size());++j){text(c,x+158,ty,fit(lines[j],184,21),21);ty+=25;}
             text(c,x+158,y+153,Flow::HumanSize(g.size),17,muted);
-            text(c,x+16,y+180,g.parts>1?"NUP DIVIDIDO · "+std::to_string(g.parts)+" PARTES":"NUP COMPLETO",12,accent);
-            text(c,x+202,y+180,g.id.empty()?"ID indisponível":g.id,11,muted);
+            text(c,x+16,y+180,g.parts>1?std::string(tr("NUP DIVIDIDO · ","SPLIT NUP · "))+std::to_string(g.parts)+tr(" PARTES"," PARTS"):tr("NUP COMPLETO","SINGLE NUP"),12,accent);
+            text(c,x+202,y+180,g.id.empty()?tr("ID indisponível","ID unavailable"):g.id,11,muted);
         }
     }
     if(!update_notice.empty())text(c,116,607,fit(update_notice,1125,16),16,muted);
     c.FillRoundRect(116,620,1125,37,9,panel);text(c,132,644,fit(folder,1080,15),15,muted);
-    text(c,117,692,"A  Jogar",19,accent);text(c,258,692,"Y  Opções",18);text(c,430,692,"X  Recarregar",18,muted);
-    text(c,641,692,"−  Pasta",18,muted);text(c,813,692,"R  Atualizações",18,muted);text(c,1123,692,"+  Sair",18,muted);
+    text(c,117,692,tr("A  Jogar","A  Play"),19,accent);text(c,258,692,tr("Y  Opções","Y  Options"),18);text(c,430,692,tr("X  Recarregar","X  Refresh"),18,muted);
+    text(c,641,692,tr("−  Pasta","−  Folder"),18,muted);text(c,813,692,tr("R  Atualizações","R  Updates"),18,muted);text(c,1123,692,tr("+  Sair","+  Exit"),18,muted);
     if(screen!=Screen::Library){
         c.FillRect(0,0,1280,720,MakeColor(0,0,0,185));
         c.FillRoundRect(238,126,805,476,22,panel);
         if(screen==Screen::Settings){
-            text(c,270,180,"Ajustes do aplicativo",28);
-            c.FillRoundRect(265,241,750,65,10,MakeColor(36,72,69));
-            text(c,283,281,"Verificar atualizações ao abrir",22,accent);
-            text(c,863,281,automatic_updates?"Ativada":"Desativada",19,accent);
-            int y=366;for(const auto& row:WrapLines(font,"Ao abrir o N Launcher, consulta se existe uma nova versão. Você confirma antes de baixar e instalar. A opção R continua disponível.",19,720)){text(c,273,y,row,19,muted);y+=30;}
-            text(c,273,574,"A / Esq / Dir  Alterar   ·   B  Voltar",18,accent);
+            text(c,270,180,tr("Ajustes do aplicativo","App settings"),28);
+            const char* s_labels[]={tr("Verificar atualizações ao abrir","Check for updates on startup"),tr("Idioma / Language","Language / Idioma")};
+            const char* s_values[]={automatic_updates?tr("Ativada","Enabled"):tr("Desativada","Disabled"),english?"English":"Português"};
+            for(int i=0;i<2;++i){
+                int y=236+i*74;
+                c.FillRoundRect(265,y,750,62,10,settings_cursor==i?MakeColor(36,72,69):bg);
+                text(c,283,y+40,s_labels[i],22,settings_cursor==i?accent:white);
+                text(c,845,y+40,s_values[i],19,accent);
+            }
+            const char* s_help=settings_cursor==0
+                ?tr("Ao abrir o N Launcher, consulta se existe uma nova versão. Você confirma antes de baixar e instalar. A opção R continua disponível.",
+                    "Checks for a new release when N Launcher starts. You confirm before anything is downloaded or installed. R remains available anytime.")
+                :tr("Altera o idioma da interface do N Launcher entre Português e English. A preferência é salva automaticamente.",
+                    "Switches the N Launcher interface language between Português and English. Your choice is saved automatically.");
+            int y=412;for(const auto& row:WrapLines(font,s_help,19,720)){text(c,273,y,row,19,muted);y+=30;}
+            text(c,273,574,tr("A / Esq / Dir  Alterar   ·   B  Voltar","A / Left / Right  Change   ·   B  Back"),18,accent);
         }else if(screen==Screen::Picker){
-            text(c,270,171,"Onde estão seus jogos?",28);text(c,270,207,fit(picker,730,16),16,accent);
-            if(dirs.empty())text(c,273,274,"Nenhuma subpasta. Y seleciona esta pasta.",19,muted);
+            text(c,270,171,tr("Onde estão seus jogos?","Where are your games?"),28);text(c,270,207,fit(picker,730,16),16,accent);
+            if(dirs.empty())text(c,273,274,tr("Nenhuma subpasta. Y seleciona esta pasta.","No subfolders. Press Y to use this folder."),19,muted);
             int first=folder_cursor/6*6;
             for(int i=first;i<std::min(first+6,int(dirs.size()));++i){int y=229+(i-first)*47;c.FillRoundRect(265,y,750,42,8,i==folder_cursor?MakeColor(36,72,69):panel);text(c,282,y+28,fit(dirs[i],705,19),19,i==folder_cursor?accent:white);}
-            text(c,274,574,"A  Abrir   ·   B  Voltar   ·   Y  Usar esta pasta",18,accent);
+            text(c,274,574,tr("A  Abrir   ·   B  Voltar   ·   Y  Usar esta pasta","A  Open   ·   B  Back   ·   Y  Use this folder"),18,accent);
         }else if(screen==Screen::Options){
-            text(c,270,175,"Opções do jogo",28);text(c,270,210,fit(games[selected].title,730,18),18,muted);
-            const char* rows[]={"Memória por jogo","Preparar e verificar jogo","Conferir integridade do índice","Testar carregador da sessão","Ver registros da última operação","Voltar à biblioteca"};
+            text(c,270,175,tr("Opções do jogo","Game options"),28);text(c,270,210,fit(games[selected].title,730,18),18,muted);
+            const char* rows[]={tr("Memória por jogo","Per-game memory"),tr("Preparar e verificar jogo","Prepare and verify game"),tr("Conferir integridade do índice","Inspect index integrity"),tr("Testar carregador da sessão","Test session loader"),tr("Ver registros da última operação","View last operation logs"),tr("Voltar à biblioteca","Back to library")};
             for(int i=0;i<6;++i){int y=230+i*49;c.FillRoundRect(265,y,750,42,10,cursor==i?MakeColor(36,72,69):bg);text(c,284,y+29,rows[i],20,cursor==i?accent:white);}
-            text(c,272,564,"A  Selecionar   ·   B  Voltar",18,muted);
+            text(c,272,564,tr("A  Selecionar   ·   B  Voltar","A  Select   ·   B  Back"),18,muted);
         }else if(screen==Screen::Memory){
-            text(c,270,175,"Memória por jogo",28);text(c,270,210,fit(games[selected].title,730,18),18,muted);
-            const char* labels[]={"Memória do jogo","Reserva do carregador"};
-            for(int i=0;i<2;++i){int y=242+i*73;auto value=i==0?memory.game_mb:memory.loader_mb;std::string shown=value?std::to_string(value)+" MiB":"Automático";
+            text(c,270,175,tr("Memória por jogo","Per-game memory"),28);text(c,270,210,fit(games[selected].title,730,18),18,muted);
+            const char* labels[]={tr("Memória do jogo","Game memory"),tr("Reserva do carregador","Loader reservation")};
+            for(int i=0;i<2;++i){int y=242+i*73;auto value=i==0?memory.game_mb:memory.loader_mb;std::string shown=value?std::to_string(value)+" MiB":tr("Automático","Automatic");
                 c.FillRoundRect(265,y,750,61,10,memory_cursor==i?MakeColor(36,72,69):bg);text(c,284,y+39,labels[i],22,memory_cursor==i?accent:white);text(c,782,y+39,shown,20,accent);}
-            std::string help=memory_cursor==0?"Limite informado ao jogo na abertura. Valores altos demais podem impedir o início. Automático mantém o padrão.":"Reserva inicial para módulos e leituras. Reservar demais reduz o espaço disponível ao jogo. Automático inicia com 384 MiB.";
+            std::string help=memory_cursor==0
+                ?tr("Limite informado ao jogo na abertura. Valores altos demais podem impedir o início. Automático mantém o padrão.","Memory limit reported to the game at launch. Values too high may prevent startup. Automatic keeps the default.")
+                :tr("Reserva inicial para módulos e leituras. Reservar demais reduz o espaço disponível ao jogo. Automático inicia com 1536 MiB e devolve o excedente.","Initial reservation for modules and reads. Reserving too much reduces space available to the game. Automatic starts with 1536 MiB and returns unused memory.");
             int y=433;for(const auto& line:WrapLines(font,help,18,720)){text(c,273,y,line,18,muted);y+=28;}
-            text(c,273,574,"Esq/Dir  Ajustar  ·  A  Salvar  ·  X  Auto  ·  B  Cancelar",16,accent);
+            text(c,273,574,tr("Esq/Dir  Ajustar  ·  A  Salvar  ·  X  Auto  ·  B  Cancelar","Left/Right  Adjust  ·  A  Save  ·  X  Auto  ·  B  Cancel"),16,accent);
         }else if(screen==Screen::Update){
-            text(c,270,179,"Atualizar N Launcher",28);text(c,273,238,"Versão atual: " NX2LINK_VERSION,22,muted);text(c,273,278,"Nova versão: "+update_version,24,accent);text(c,273,320,"Download: "+Flow::HumanSize(update_size),20,muted);
-            text(c,273,398,"O aplicativo será verificado antes da instalação.",19);text(c,273,432,"Jogos, cache, perfis e saves serão mantidos.",19,muted);text(c,273,574,"A  Baixar e atualizar   ·   B  Cancelar",18,accent);
+            text(c,270,179,tr("Atualizar N Launcher","Update N Launcher"),28);text(c,273,238,std::string(tr("Versão atual: ","Current version: "))+NX2LINK_VERSION,22,muted);text(c,273,278,std::string(tr("Nova versão: ","New version: "))+update_version,24,accent);text(c,273,320,"Download: "+Flow::HumanSize(update_size),20,muted);
+            text(c,273,398,tr("O aplicativo será verificado antes da instalação.","The application will be verified before installation."),19);text(c,273,432,tr("Jogos, cache, perfis e saves serão mantidos.","Games, cache, profiles and saves will be preserved."),19,muted);text(c,273,574,tr("A  Baixar e atualizar   ·   B  Cancelar","A  Download and update   ·   B  Cancel"),18,accent);
         }else if(screen==Screen::Restart){
-            text(c,270,180,"Atualização instalada",28);text(c,273,252,"Reabra o N Launcher para usar a nova versão.",22);text(c,273,300,"A versão anterior fica preservada até a confirmação.",18,muted);text(c,273,574,"A  Reabrir agora   ·   B  Voltar ao hbmenu",18,accent);
+            text(c,270,180,tr("Atualização instalada","Update installed"),28);text(c,273,252,tr("Reabra o N Launcher para usar a nova versão.","Reopen N Launcher to use the new version."),22);text(c,273,300,tr("A versão anterior fica preservada até a confirmação.","The previous version is kept until confirmed."),18,muted);text(c,273,574,tr("A  Reabrir agora   ·   B  Voltar ao hbmenu","A  Reopen now   ·   B  Return to hbmenu"),18,accent);
         }else{
             text(c,270,180,fit(title,730,28),28);
             auto lines=message_lines();int y=228;auto first=working&&lines.size()>9?lines.size()-9:message_scroll;
@@ -212,8 +232,8 @@ void Menu::draw(Canvas& c){
             if(working){c.FillRoundRect(272,527,732,8,4,line);
                 int x=progress<0?272+int((frames%90)/90.0f*530):272;
                 int width=progress<0?202:int(732*std::clamp(progress,0.0f,1.0f));
-                c.FillRoundRect(x,527,width,8,4,accent);text(c,272,574,cancel?"Cancelando na próxima etapa segura…":"B  Cancelar ao concluir a etapa atual",17,muted);}
-            else text(c,272,574,lines.size()>9?"A / B  Voltar   ·   Direcional  Rolar texto":"A / B  Voltar à biblioteca",18,accent);
+                c.FillRoundRect(x,527,width,8,4,accent);text(c,272,574,cancel?tr("Cancelando na próxima etapa segura…","Canceling at the next safe step…"):tr("B  Cancelar ao concluir a etapa atual","B  Cancel after current step"),17,muted);}
+            else text(c,272,574,lines.size()>9?tr("A / B  Voltar   ·   Direcional  Rolar texto","A / B  Back   ·   D-pad  Scroll text"):tr("A / B  Voltar à biblioteca","A / B  Back to library"),18,accent);
         }
     }
 }

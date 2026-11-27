@@ -19,6 +19,8 @@ public:
     void offer_restart();
     void finish_auto_check(bool failed,bool canceled=false);
     bool startup_updates_enabled()const{return automatic_updates;}
+    bool is_english()const{return english;}
+    const char* tr(const char* pt,const char* en)const{return english?en:pt;}
     bool begin_startup_check(Action requested,bool operation_active);
     bool in_library()const{return screen==Screen::Library;}
     void finish_job(std::string title,std::string detail);
@@ -37,9 +39,9 @@ private:
     std::string folder{Flow::kDefaultGames},picker{ "/" },title,detail;
     std::vector<std::string> dirs;
     enum class Screen {Library,Picker,Options,Message,Memory,Update,Restart,Settings} screen{Screen::Library};
-    int selected{},cursor{},folder_cursor{},memory_cursor{};
+    int selected{},cursor{},folder_cursor{},memory_cursor{},settings_cursor{};
     nx2link::MemoryProfile memory{};std::string update_version;uint64_t update_size{};
-    bool working{},cancel{},automatic_updates{true},startup_check_pending{true};float progress{-1};
+    bool working{},cancel{},automatic_updates{true},startup_check_pending{true},english{};float progress{-1};
     std::string update_notice;
     std::size_t message_scroll{};unsigned frames{};
 };

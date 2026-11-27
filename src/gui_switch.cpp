@@ -42,9 +42,10 @@ void install_runtime(){
 }
 struct Job {
     Thread thread{};std::mutex lock;std::atomic<bool> done{},cancel{};
-    nlauncher::Request request;std::string message,result;bool success{},automatic{};std::atomic<float> fraction{-1};
+    nlauncher::Request request;std::string message,result;bool success{},automatic{},english{};std::atomic<float> fraction{-1};
     nx2link::UpdateManifest manifest;std::filesystem::path executable;bool newer{};
     void status(std::string s){std::lock_guard<std::mutex> guard(lock);message=std::move(s);}
+    const char* tr(const char* pt,const char* en)const{return english?en:pt;}
 };
 void work(void* arg){
     auto& job=*static_cast<Job*>(arg);
@@ -55,12 +56,12 @@ void work(void* arg){
         std::filesystem::create_directories("sdmc:/switch/n-launcher/logs");
         const bool updating=job.request.action==nlauncher::Action::CheckUpdate||job.request.action==nlauncher::Action::InstallUpdate;
         log=std::fopen(updating?"sdmc:/switch/n-launcher/logs/update-operation.log":"sdmc:/switch/n-launcher/logs/menu-operation.log","wb");
-        auto fetch=[&](const std::string& url,const nx2link::UpdateSink& sink,uint64_t limit){nx2link::fetch_update_https(url,[&](const uint8_t* bytes,size_t n){if(job.cancel.load())throw std::runtime_error("Atualização cancelada; aplicativo atual preservado");sink(bytes,n);},limit);};
+        auto fetch=[&](const std::string& url,const nx2link::UpdateSink& sink,uint64_t limit){nx2link::fetch_update_https(url,[&](const uint8_t* bytes,size_t n){if(job.cancel.load())throw std::runtime_error(job.tr("Atualização cancelada; aplicativo atual preservado","Update canceled; current application preserved"));sink(bytes,n);},limit);};
         if(job.request.action==nlauncher::Action::CheckUpdate){
-            job.status("Consultando a versão pública no GitHub…");job.manifest=nx2link::check_update(fetch);job.newer=nx2link::version_newer(job.manifest.version,NX2LINK_VERSION);job.result="Você já usa a versão mais recente: " NX2LINK_VERSION;
+            job.status(job.tr("Consultando a versão pública no GitHub…","Checking public release on GitHub…"));job.manifest=nx2link::check_update(fetch);job.newer=nx2link::version_newer(job.manifest.version,NX2LINK_VERSION);job.result=std::string(job.tr("Você já usa a versão mais recente: ","You are already on the latest version: "))+NX2LINK_VERSION;
         }else if(job.request.action==nlauncher::Action::InstallUpdate){
-            nx2link::install_update(job.manifest,NX2LINK_VERSION,job.executable,fetch,[&](const std::string& step,double fraction){if(job.cancel.load())throw std::runtime_error("Atualização cancelada; aplicativo atual preservado");job.status(step);job.fraction.store(float(fraction));});job.result="Atualização verificada e instalada. Reabra o aplicativo.";
-        }else if(job.request.action==nlauncher::Action::Probe){job.status("Testando o carregador da sessão ativa…");job.result=nx2link::run_loader_probe();}
+            nx2link::install_update(job.manifest,NX2LINK_VERSION,job.executable,fetch,[&](const std::string& step,double fraction){if(job.cancel.load())throw std::runtime_error(job.tr("Atualização cancelada; aplicativo atual preservado","Update canceled; current application preserved"));job.status(step);job.fraction.store(float(fraction));});job.result=job.tr("Atualização verificada e instalada. Reabra o aplicativo.","Update verified and installed. Reopen the application.");
+        }else if(job.request.action==nlauncher::Action::Probe){job.status(job.tr("Testando o carregador da sessão ativa…","Testing the active session loader…"));job.result=nx2link::run_loader_probe();}
         else{
             nx2link::Input input{std::filesystem::u8path(Flow::OnCard(job.request.path))};
             if(job.request.action==nlauncher::Action::Prepare||job.request.action==nlauncher::Action::Launch){
@@ -68,20 +69,20 @@ void work(void* arg){
                 auto n=nx2link::prepare_program(input,[&](const std::string& line){
                     if(log){std::fprintf(log,"%s\n",line.c_str());std::fflush(log);}
                     if(launching)nlauncher::launch_trace("program.step",line);
-                    if(job.cancel.load())throw std::runtime_error("Operação cancelada. O NUP original foi preservado.");
+                    if(job.cancel.load())throw std::runtime_error(job.tr("Operação cancelada. O NUP original foi preservado.","Operation canceled. The original NUP was preserved."));
                     job.status(line);
                 });
                 if(launching)nlauncher::launch_trace("program.ready");
                 if(launching)nlauncher::launch_trace("cache.begin");
                 auto cached=nx2link::prepare_cache(input,"sdmc:/switch/n-launcher/content",[&](const std::string& message,double value){
-                    if(job.cancel.load())throw std::runtime_error("Preparação cancelada. O NUP original foi preservado.");
+                    if(job.cancel.load())throw std::runtime_error(job.tr("Preparação cancelada. O NUP original foi preservado.","Preparation canceled. The original NUP was preserved."));
                     job.status(message);job.fraction.store(float(value));
                 });
                 if(launching)nlauncher::launch_trace("cache.ready",std::to_string(cached));
-                if(job.cancel.load())throw std::runtime_error("Preparação cancelada antes de iniciar o jogo. Cache verificado preservado.");
+                if(job.cancel.load())throw std::runtime_error(job.tr("Preparação cancelada antes de iniciar o jogo. Cache verificado preservado.","Preparation canceled before launching the game. Verified cache preserved."));
                 if(job.request.action==nlauncher::Action::Launch)install_runtime();
-                job.result="Programa preparado: "+std::to_string(n)+" módulos.\nCache: "+std::to_string(cached)+" arquivos grandes verificados.";
-            }else{auto info=nx2link::inspect(input);job.result="Índice SHA-256 válido.\n"+std::to_string(input.parts().size())+" partes · "+std::to_string(info.packages.size())+" pacotes · "+std::to_string(info.files)+" arquivos.\nO conteúdo de cada arquivo ainda não foi verificado.";}
+                job.result=std::string(job.tr("Programa preparado: ","Program prepared: "))+std::to_string(n)+job.tr(" módulos.\nCache: "," modules.\nCache: ")+std::to_string(cached)+job.tr(" arquivos grandes verificados."," large files verified.");
+            }else{auto info=nx2link::inspect(input);job.result=std::string(job.tr("Índice SHA-256 válido.\n","Valid SHA-256 index.\n"))+std::to_string(input.parts().size())+job.tr(" partes · "," parts · ")+std::to_string(info.packages.size())+job.tr(" pacotes · "," packages · ")+std::to_string(info.files)+job.tr(" arquivos.\nO conteúdo de cada arquivo ainda não foi verificado."," files.\nIndividual file contents have not been verified yet.");}
         }
         job.success=true;
     }catch(const std::exception& e){job.result=e.what();if(job.request.action==nlauncher::Action::Launch)nlauncher::launch_trace("worker.error",job.result);}
@@ -129,7 +130,7 @@ int main(int argc,char** argv){
             if(k.b)job->cancel.store(true);
             if(job->done.load()){
                 threadWaitForExit(&job->thread);threadClose(&job->thread);
-                if(job->success&&job->cancel.load()&&job->request.action==Action::Launch){job->success=false;job->result="Preparação cancelada antes de iniciar o jogo. Cache verificado preservado.";}
+                if(job->success&&job->cancel.load()&&job->request.action==Action::Launch){job->success=false;job->result=menu.tr("Preparação cancelada antes de iniciar o jogo. Cache verificado preservado.","Preparation canceled before launching the game. Verified cache preserved.");}
                 if(job->success&&job->request.action==Action::Launch){
                     const auto loader=Flow::OnCard(Flow::kGameNro);
                     const std::string args=nx2link::launch_arguments(loader,Flow::OnCard(job->request.path),menu_path,job->request.memory.loader_mb);
@@ -137,15 +138,15 @@ int main(int argc,char** argv){
                     const auto next_rc=envSetNextLoad(loader.c_str(),args.c_str());
                     launch_trace("handoff.result",std::to_string(next_rc));
                     if(R_SUCCEEDED(next_rc))leave=true;
-                    else{job->success=false;job->result="O hbmenu não aceitou iniciar o carregador. Consulte os registros.";}
+                    else{job->success=false;job->result=menu.tr("O hbmenu não aceitou iniciar o carregador. Consulte os registros.","hbmenu refused to start the loader. Check the logs.");}
                 }
-                if(job->success&&job->request.action==Action::CheckUpdate&&job->cancel.load()){job->success=false;job->result="Verificação cancelada.";}
+                if(job->success&&job->request.action==Action::CheckUpdate&&job->cancel.load()){job->success=false;job->result=menu.tr("Verificação cancelada.","Check canceled.");}
                 if(job->success&&job->request.action==Action::CheckUpdate&&job->newer){pending_update=job->manifest;menu.offer_update(pending_update.version,pending_update.size);}
                 else if(job->success&&job->request.action==Action::InstallUpdate)menu.offer_restart();
                 else if(job->automatic)menu.finish_auto_check(!job->success,job->cancel.load());
-                else menu.finish_job(job->success?"Operação concluída":"Operação interrompida",job->result+"\nRegistro: /switch/n-launcher/logs/");
+                else menu.finish_job(job->success?menu.tr("Operação concluída","Operation complete"):menu.tr("Operação interrompida","Operation interrupted"),job->result+menu.tr("\nRegistro: /switch/n-launcher/logs/","\nLog: /switch/n-launcher/logs/"));
                 job.reset();completed_job=true;
-            }else{std::lock_guard<std::mutex> guard(job->lock);menu.report(job->request.action==Action::CheckUpdate||job->request.action==Action::InstallUpdate?"Atualizações":"Preparando e verificando",job->message,true,job->fraction.load());}
+            }else{std::lock_guard<std::mutex> guard(job->lock);menu.report(job->request.action==Action::CheckUpdate||job->request.action==Action::InstallUpdate?menu.tr("Atualizações","Updates"):menu.tr("Preparando e verificando","Preparing and verifying"),job->message,true,job->fraction.load());}
         }
         if(leave)break;
         // A newly displayed update prompt requires a fresh confirmation press.
@@ -160,17 +161,17 @@ int main(int argc,char** argv){
         }else if(req.action==Action::Logs){
             std::ifstream in("sdmc:/switch/n-launcher/logs/menu-operation.log",std::ios::binary);std::string tail;
             if(in){in.seekg(0,std::ios::end);std::streamoff bytes=in.tellg();in.seekg(bytes>8192?bytes-8192:0);tail.assign(std::istreambuf_iterator<char>(in),{});}
-            menu.report("Última operação",tail.empty()?"Nenhum registro disponível ainda.":tail);
+            menu.report(menu.tr("Última operação","Last operation"),tail.empty()?menu.tr("Nenhum registro disponível ainda.","No logs available yet."):tail);
         }else if(req.action==Action::Launch&&(!envHasNextLoad()||smGetServiceOverride(smEncodeName("ldr:ro"))==INVALID_HANDLE)){
-            menu.report("Sessão necessária","Abra pelo hbmenu com kaiHEN ativo. Esta homebrew utiliza a sessão existente; ela não instala ou reativa o kaiHEN.");
+            menu.report(menu.tr("Sessão necessária","Session required"),menu.tr("Abra pelo hbmenu com kaiHEN ativo. Esta homebrew utiliza a sessão existente; ela não instala ou reativa o kaiHEN.","Launch through hbmenu with kaiHEN active. This homebrew uses the existing session; it does not install or reactivate kaiHEN."));
         }else if(req.action==Action::Launch&&!begin_launch_trace(Flow::OnCard(req.path))){
-            menu.report("Não foi possível iniciar","Não foi possível preservar o registro de abertura no SD. Confira o espaço livre e os arquivos de logs.");
+            menu.report(menu.tr("Não foi possível iniciar","Could not start"),menu.tr("Não foi possível preservar o registro de abertura no SD. Confira o espaço livre e os arquivos de logs.","Could not write the launch trace to the SD card. Check free space and log files."));
         }else if(req.action!=Action::None){
-            job=std::make_unique<Job>();job->request=req;job->automatic=automatic_request;job->executable=std::filesystem::u8path(menu_path);if(req.action==Action::InstallUpdate)job->manifest=pending_update;
+            job=std::make_unique<Job>();job->request=req;job->automatic=automatic_request;job->english=menu.is_english();job->executable=std::filesystem::u8path(menu_path);if(req.action==Action::InstallUpdate)job->manifest=pending_update;
             auto rc=threadCreate(&job->thread,work,job.get(),nullptr,0x40000,0x2c,-2);
             if(R_SUCCEEDED(rc)){rc=threadStart(&job->thread);if(R_FAILED(rc))threadClose(&job->thread);}
-            if(R_FAILED(rc)){job.reset();if(automatic_request)menu.finish_auto_check(true);else menu.report("Não foi possível iniciar","A operação não começou. Seus arquivos não foram alterados.");}
-            else menu.report(automatic_request?"Verificando atualizações ao abrir":"Iniciando verificação","Aguarde…",true);
+            if(R_FAILED(rc)){job.reset();if(automatic_request)menu.finish_auto_check(true);else menu.report(menu.tr("Não foi possível iniciar","Could not start"),menu.tr("A operação não começou. Seus arquivos não foram alterados.","The operation did not start. Your files were not modified."));}
+            else menu.report(automatic_request?menu.tr("Verificando atualizações ao abrir","Checking for updates on startup"):menu.tr("Iniciando verificação","Starting verification"),menu.tr("Aguarde…","Please wait…"),true);
         }
         menu.draw(*canvas);if(!present(fb,*canvas))break;
     }

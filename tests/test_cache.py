@@ -45,4 +45,29 @@ class Cache(unittest.TestCase):
         self.source.write_bytes(fixture(b'T'*200000,trailing=True));self.run_cache(ok=False);self.assertFalse(list(self.cache.glob('*/complete')))
     def test_missing_cached_part_fails_without_overwrite(self):
         data=b'M'*200000;self.source.write_bytes(fixture(data));self.run_cache();folder=self.cache/hashlib.sha256(data).hexdigest();(folder/'0000.bin').unlink();self.run_cache(ok=False);self.assertTrue((folder/'complete').exists())
+    def test_empty_zero_offset_romfs_file_allowed(self):
+        data=b'E'*200000
+        frame=b'\x28\xb5\x2f\xfd\xa0'+struct.pack('<I',len(data))
+        for at in range(0,len(data),128*1024):
+            n=min(128*1024,len(data)-at);frame+=((n<<3)|2|int(at+n==len(data))).to_bytes(3,'little')+data[:1]
+        names=b'zero\x00test'
+        toc=bytearray(0x30+0x40+0x18+2*0x50+8+len(names));toc[:4]=b'TOC\1';pool=len(toc)-len(names)
+        struct.pack_into('<IQQQQ',toc,4,1,1,2,pool,len(names))
+        struct.pack_into('<QIIIIBB',toc,0x30,0x0400f00000001000,0,0xffffffff,0,0,0,0)
+        struct.pack_into('<IIII',toc,0x70,0,0,0,2)
+        f0=0x88;struct.pack_into('<IIQQQ',toc,f0,0,4,0,0,0);toc[f0+32:f0+64]=hashlib.sha256(b'').digest();toc[f0+64]=0
+        f1=f0+0x50;struct.pack_into('<IIQQQ',toc,f1,5,4,len(data),0x80+len(toc),len(frame));toc[f1+32:f1+64]=hashlib.sha256(data).digest();toc[f1+64]=1
+        struct.pack_into('<II',toc,pool-8,1,2);toc[pool:]=names
+        h=bytearray(128);h[:4]=b'NUP\1';struct.pack_into('<QQ',h,8,128,len(toc));h[24:56]=hashlib.sha256(toc).digest();struct.pack_into('<QQI',h,56,128+len(toc),128+len(toc)+len(frame),1)
+        self.source.write_bytes(bytes(h+toc)+frame);self.run_cache()
+        self.assertEqual((self.cache/hashlib.sha256(data).hexdigest()/'0000.bin').read_bytes(),data)
+    def test_nonzero_file_below_blob_rejected(self):
+        toc=bytearray(0x30+0x40+0x18+0x50+4+4);toc[:4]=b'TOC\1';pool=len(toc)-4
+        struct.pack_into('<IQQQQ',toc,4,1,1,1,pool,4)
+        struct.pack_into('<QIIIIBB',toc,0x30,0x0400f00000001000,0,0xffffffff,0,0,0,0)
+        struct.pack_into('<IIII',toc,0x70,0,0,0,1)
+        f=0x88;struct.pack_into('<IIQQQ',toc,f,0,4,4,0,4);toc[f+32:f+64]=hashlib.sha256(b'abcd').digest();toc[f+64]=0
+        struct.pack_into('<I',toc,pool-4,1);toc[pool:]=b'test'
+        h=bytearray(128);h[:4]=b'NUP\1';struct.pack_into('<QQ',h,8,128,len(toc));h[24:56]=hashlib.sha256(toc).digest();struct.pack_into('<QQI',h,56,128+len(toc),128+len(toc),1)
+        self.source.write_bytes(bytes(h+toc));out=self.run_cache(ok=False);self.assertIn('Invalid payload offset/codec',out)
 if __name__=='__main__':unittest.main()

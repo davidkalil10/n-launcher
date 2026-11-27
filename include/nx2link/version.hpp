@@ -1,2 +1,2 @@
 #pragma once
-#define NX2LINK_VERSION "0.0.16"
+#define NX2LINK_VERSION "0.0.17"

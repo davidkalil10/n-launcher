@@ -93,7 +93,7 @@ public:
         const auto* f=toc_.data()+files_+index*0x50;
         File file{le(f+8,8),le(f+16,8),le(f+24,8),{},f[0x40]};std::memcpy(file.hash.data(),f+32,32);
         if(file.size>Limit||file.stored>Limit)bad("Program file exceeds 256 MiB preparation limit");
-        bounds(file.at,file.stored,input_.size());if(file.at<blob_)bad("Program payload overlaps metadata");
+        bounds(file.at,file.stored,input_.size());if((file.size||file.stored)&&file.at<blob_)bad("Program payload overlaps metadata");
         std::vector<uint8_t> bytes(size_t(std::max<uint64_t>(1,file.size)));
         if(file.codec==0) {
             if(file.stored!=file.size)bad("Uncompressed file size mismatch");
@@ -127,7 +127,7 @@ public:
         File result{le(f+8,8),le(f+16,8),le(f+24,8),{},f[0x40]};
         std::memcpy(result.hash.data(),f+32,32);
         bounds(result.at,result.stored,input_.size());
-        if(result.at<blob_ || result.codec>1)bad("Invalid payload offset/codec");
+        if(((result.size||result.stored)&&result.at<blob_) || result.codec>1)bad("Invalid payload offset/codec");
         return result;
     }
     std::map<std::string,uint64_t> romfs() const {

@@ -1,0 +1,10 @@
+{
+  "repository": "https://github.com/Olmectron/nx2-flow",
+  "commit": "189e85fd9cc8c291eff2ad361f9a30c3c6bb7ca6",
+  "source": "loader/runtime/spinlock.h",
+  "pullRequest": 44,
+  "license": "MIT",
+  "file": "include/nx2link/upstream_spinlock.h",
+  "sha256": "4aee660c7997ee7cf55f830d33d4dfb0304d6b435614da24b0fe90a25571916b",
+  "scope": "Bounded spinlock backoff only; base runtime remains loader 0.1.3."
+}

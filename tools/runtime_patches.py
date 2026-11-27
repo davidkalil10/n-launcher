@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-"""Reviewed runtime adaptations over config/flow.json. Audio/SVC/TLS implementation stays upstream."""
+"""Reviewed runtime adaptations over config/flow.json. Includes the pinned PR44 lock-backoff adaptation; TLS and game-code policies stay upstream."""
 def patch_runtime(out):
     def patch(file,before,after):
         p=out/'loader/runtime'/file;s=p.read_text(encoding='utf-8')
@@ -34,7 +34,37 @@ def patch_runtime(out):
 '''+before)
     s=s.replace('                } else if (e->kind == 2) {','                } else if (e->kind == 3) {\n                    rc = nl_cache_read((u32)e->at,in-e->data,to,take);\n                } else if (e->kind == 2) {',1)
     p.write_text(s,encoding='utf-8',newline='\n')
+    patch_priority_locks(out)
     # Both fallback and normal return paths point to our app, without changing activation.
     for p in (out/'loader/runtime').glob('*.c'):
         s=p.read_text(encoding='utf-8');s=s.replace('sdmc:/switch/nx2-flow/nx2-flow.nro','sdmc:/switch/n-launcher/n-launcher.nro').replace('sdmc:/nx2-flow/next.txt','sdmc:/switch/n-launcher/next.txt')
         p.write_text(s,encoding='utf-8',newline='\n')
+
+
+def patch_priority_locks(out):
+    """Backport reviewed PR44 without importing unrelated runtime changes."""
+    from pathlib import Path
+    import hashlib, json, re
+    root=Path(__file__).resolve().parents[1]
+    pin=json.loads((root/'config/runtime-lock-fix.json').read_text(encoding='utf-8'))
+    header=(root/pin['file']).read_bytes()
+    if hashlib.sha256(header).hexdigest()!=pin['sha256']:
+        raise RuntimeError('Pinned priority-lock helper changed')
+    expected={'game.c':7,'audio2.c':1,'rom.c':3,'svc.c':1}
+    for name,count in expected.items():
+        p=out/'loader/runtime'/name
+        s=p.read_text(encoding='utf-8')
+        s=s.replace('#include "nx2.h"','#include "nx2.h"\n#include "nx2link/upstream_spinlock.h"',1)
+        pattern=r'while \(__atomic_exchange_n\(([^,]+), 1, __ATOMIC_ACQUIRE\)\) svcSleepThread\(0\);'
+        s,n=re.subn(pattern,r'nx2_spin_lock(\1);',s)
+        if n!=count:raise RuntimeError(f'Priority-lock patch drift: {name}: {n} != {count}')
+        p.write_text(s,encoding='utf-8',newline='\n')
+    p=out/'loader/runtime/nvnwatch.c';s=p.read_text(encoding='utf-8')
+    s=s.replace('#include "nx2.h"','#include "nx2.h"\n#include "nx2link/upstream_spinlock.h"',1)
+    before='while (!__atomic_compare_exchange_n(&owner, &none, me, 0, __ATOMIC_ACQUIRE, __ATOMIC_RELAXED)) none = 0, svcSleepThread(0);'
+    after='u32 spins = 0;\n        while (!__atomic_compare_exchange_n(&owner, &none, me, 0, __ATOMIC_ACQUIRE, __ATOMIC_RELAXED)) { none = 0; nx2_spin_backoff(&spins); }'
+    if s.count(before)!=1:raise RuntimeError('Priority-lock patch drift: nvnwatch.c')
+    p.write_text(s.replace(before,after),encoding='utf-8',newline='\n')
+    for name in [*expected,'nvnwatch.c']:
+        if 'svcSleepThread(0)' in (out/'loader/runtime'/name).read_text(encoding='utf-8'):
+            raise RuntimeError(f'Unreviewed zero-sleep wait remains: {name}')

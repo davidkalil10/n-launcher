@@ -13,3 +13,9 @@ The memory profiles inspected for the incident were automatic (Pokopia had no ga
 ## Test package
 
 The dedicated test asset is labelled N Launcher - Display Fix, version 0.0.14, while the normal build keeps the product title. Test NRO size: 20,124,871 bytes; SHA-256 8fc0c56f769ac2c36113020067854ad6b8121158f23b34fac46f82cab96e9937. It was uploaded separately and read back over FTP for verification. Matching symbols are retained with build metadata; neither public release nor CI build is claimed. The console test uses Pokopia over the same Split Fiction host.
+
+## Hardware result and combined candidate
+
+Pokopia opened on the console with the 0.0.14 Display Fix over Split Fiction. This validates recovery from the observed frontend abort in that test, not every GPU failure or all games. The two-second timeout's deeper cause is still unknown. Audio/controls/save behavior were not separately retested by this result.
+
+The 0.0.15 candidate combines that frontend fix with the isolated PR44 backoff previously prepared in 0.0.13: 16 fast yields followed by 100 us timed sleeps on contended runtime locks, including the native split/cache backend. It keeps base loader 0.1.3; unrelated 0.1.7 features are not imported. The original upstream snapshot is verified and unchanged. Both bounded-wait test suites are retained in host CI. Keep the validated 0.0.14 test NRO available while testing the combined build.

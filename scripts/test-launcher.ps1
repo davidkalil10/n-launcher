@@ -24,6 +24,10 @@ try {
     if($LASTEXITCODE -ne 0){throw 'Frame acquisition test build failed'}
     & build/host/frame-acquire-test.exe
     if($LASTEXITCODE -ne 0){throw 'Frame acquisition tests failed'}
+    & $Compiler -std=c++17 -O2 -pthread -static -static-libgcc -static-libstdc++ -Wall -Wextra -Werror -Iinclude tests/test_priority_lock.cpp -o build/host/priority-lock-test.exe
+    if($LASTEXITCODE -ne 0){throw 'Priority-lock test build failed'}
+    & build/host/priority-lock-test.exe
+    if($LASTEXITCODE -ne 0){throw 'Priority-lock tests failed'}
     & $Compiler -std=c++17 -O2 -static -static-libgcc -static-libstdc++ -Wall -Wextra -Werror -Itests/tls_mock -Iinclude tests/test_tls_socket.cpp -o build/host/tls-socket-test.exe
     if($LASTEXITCODE -ne 0){throw 'TLS socket test build failed'}
     & build/host/tls-socket-test.exe

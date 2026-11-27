@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Setup uses the validated C++ Input. Guest-thread reads use POD + native FS only: no C++ runtime/TLS.
 #include <switch.h>
+#define NX2_SPIN_SLEEP(ns) svcSleepThread(ns)
+#include "nx2link/upstream_spinlock.h"
 #include "nx2link/input.hpp"
 #include <cstring>
 #include <cstdio>
@@ -10,7 +12,7 @@ constexpr u32 io_error=0x2ee202;
 struct Piece{FsFile file;u64 start,size;};
 Piece pieces[128];unsigned count;u64 length;
 u32 source_lock,cache_lock;
-void take(u32* lock){while(__atomic_exchange_n(lock,1,__ATOMIC_ACQUIRE))svcSleepThread(0);}
+void take(u32* lock){nx2_spin_lock(lock);}
 void give(u32* lock){__atomic_store_n(lock,0,__ATOMIC_RELEASE);}
 void close_source(){while(count)fsFileClose(&pieces[--count].file);length=0;}
 struct CacheEntry{char path[160];u64 size;u32 chunk;};

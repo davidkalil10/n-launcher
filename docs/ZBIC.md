@@ -23,4 +23,4 @@ O workspace adicional é por segmento, não por jogo inteiro. A alocação é li
 
 A suíte contém uma tabela ZBIC sintética com contagens [16,16], símbolos RLE e uma sequência que gera 100 bytes A, além de frames raw. O resultado convertido é comparado byte a byte com o frame Zstd esperado e depois descomprimido. Há testes de concatenação, truncagem, buffers curtos e 1.500 entradas pequenas malformadas, sem dados de jogos.
 
-A integração NSO verifica hash, tamanho declarado, compressão mista e NUP externo comprimido/splitado. O Zelda Ocarina of Time de seis partes passou pelos três módulos no PC. Execução no console ainda precisa de teste; preparação válida não garante compatibilidade do runtime com todos os serviços do título.
+A integração NSO verifica hash, tamanho declarado, compressão mista e NUP externo comprimido/splitado. O Zelda Ocarina of Time de seis partes passou pelos três módulos no PC. A preparação no console e a entrada na cutscene foram confirmadas na 0.0.12. O loading após a intro ainda não avançou no teste observado; isso não valida gameplay. Consulte HANDOFF.md e DISPLAY_TIMEOUT.md para distinguir esse problema da regressão gráfica do frontend.

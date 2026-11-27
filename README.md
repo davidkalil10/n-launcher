@@ -108,6 +108,7 @@ If you find **N Launcher** useful, consider buying me a coffee to support contin
 Maintained by **David Kalil Braga ([@davidkalil10](https://github.com/davidkalil10))**.
 
 - [Olmectron/nx2-flow](https://github.com/Olmectron/nx2-flow): generic loader 0.1.3 and ZBIC transcoder, MIT; menu components 0.2.2, GPL-2.0-or-later. Revision and hashes are pinned in `config/flow.json`; adaptations are generated separately.
+- [ptichalouf / nx2-flow PR #44](https://github.com/Olmectron/nx2-flow/pull/44): bounded lock backoff that lets lower-priority threads finish file reads/decompression; MIT helper pinned in `config/runtime-lock-fix.json`.
 - [nx2-relink](https://github.com/Olmectron/nx2-relink) and [nx-relink](https://github.com/Olmectron/nx-relink): MIT runtime and relinker; reference version 0.1.12, including the audio fix, is pinned in `config/upstream.json`.
 - [Toronja](https://github.com/Olmectron/toronja), Azahar Emulator Project and PalindromicBreadLoaf: origins of the graphics components; GPL notices are preserved.
 - [a55uka/nup](https://github.com/a55uka/nup): NUP format.

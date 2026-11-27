@@ -38,6 +38,9 @@ jobs:
           python3 tests/test_cache.py build/cache-probe
           g++ -std=c++17 -O2 -Wall -Wextra -Werror -Iinclude tests/test_frame_acquire.cpp -o build/frame-acquire-test
           build/frame-acquire-test
+          python3 tools/prepare_flow.py
+          g++ -std=c++17 -O2 -pthread -Wall -Wextra -Werror -Iinclude tests/test_priority_lock.cpp -o build/priority-lock-test
+          build/priority-lock-test
           g++ -std=c++17 -O2 -Wall -Wextra -Werror -Itests/mock -Iinclude src/input.cpp src/native_input.cpp tests/native_backend_probe.cpp -o build/native-backend
           python3 tests/test_native_backend.py build/native-backend
           g++ -std=c++17 -O2 -Wall -Wextra -Werror -Iinclude src/input.cpp src/update.cpp src/http.cpp src/profile.cpp src/layout.cpp tests/test_app_core.cpp -o build/app-core-test

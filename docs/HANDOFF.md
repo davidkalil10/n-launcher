@@ -91,3 +91,9 @@ Instalar a 0.0.9 manualmente, preservando dados, e testar R para consultar a rel
 ## Checkpoint 0.0.10
 
 Orbitals abriu no console após a correção de pacote. Não inferir validação de áudio/saves a partir dessa confirmação. A 0.0.10 muda apenas versão e documentação em relação à 0.0.9; preserva a correção TLS, o runtime e os formatos de dados. Teste solicitado: usar R na 0.0.9 já instalada para baixar/instalar 0.0.10 e A para reabrir. Não pedir cópia manual antes desse teste. O teste de TLS/atualização ainda não foi confirmado pela execução do Orbitals.
+
+## Consulta automática 0.0.11 e investigação Elliot
+
+Menu::begin_startup_check agenda uma consulta por abertura, respeita L → Ajustes e evita duplicar uma consulta manual. Preferência check_updates em menu.cfg, preservada ao escolher a pasta. O worker existente é reutilizado; sucesso sem versão nova, cancelamento e falha automática retornam à biblioteca. Instalação exige confirmação nova. Updates usam update-operation.log para preservar os registros de preparação.
+
+Elliot 0.0.10 encerrou antes do runtime; a imagem main do SD e do PC tem o mesmo hash, e três módulos passam no PC. A causa ainda não foi identificada. Há um NRO separado na branch codex/elliot-fatal-diagnostics e docs/ELLIOT_INVESTIGATION.md descreve o próximo teste. O diagnóstico não foi integrado na release, e a consulta automática não corrige esse crash. Não reiniciar ou reativar kaiHEN automaticamente.

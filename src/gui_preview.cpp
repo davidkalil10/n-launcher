@@ -14,6 +14,7 @@ int main(int argc,char** argv){
     Flow::SetCardRoot(argv[1]);std::filesystem::create_directories(argv[2]);
     nlauncher::Menu menu;Canvas canvas;menu.start();
     save(menu,canvas,std::string(argv[2])+"/library.ppm");
+    nlauncher::Keys settings;settings.l=true;menu.update(settings);save(menu,canvas,std::string(argv[2])+"/settings.ppm");settings={};settings.b=true;menu.update(settings);
     nlauncher::Keys key;key.y=true;menu.update(key);save(menu,canvas,std::string(argv[2])+"/options.ppm");
     key={};key.a=true;menu.update(key);save(menu,canvas,std::string(argv[2])+"/memory.ppm");
     key={};key.b=true;menu.update(key);

@@ -42,9 +42,9 @@ std::string Menu::fit(std::string s,int width,int size){
     while(!s.empty()&&font.Measure(s+"…",size)>width){auto pos=s.size()-1;while(pos>0&&(static_cast<unsigned char>(s[pos])&0xc0)==0x80)--pos;s.resize(pos);}
     return s+"…";
 }
-void Menu::save(){Flow::WriteSettings(Flow::kMenuCfg,{{"games",folder}});}
+void Menu::save(){auto cfg=Flow::ReadSettings(Flow::kMenuCfg);cfg["games"]=folder;Flow::WriteSettings(Flow::kMenuCfg,cfg);}
 void Menu::scan(){games=Flow::ScanGames(folder);selected=std::min(selected,std::max(0,int(games.size())-1));icons.clear();}
-void Menu::start(){auto cfg=Flow::ReadSettings(Flow::kMenuCfg);if(cfg.count("games")&&Flow::IsFolder(cfg["games"]))folder=cfg["games"];scan();}
+void Menu::start(){auto cfg=Flow::ReadSettings(Flow::kMenuCfg);automatic_updates=cfg["check_updates"]!="0";startup_check_pending=automatic_updates;if(cfg.count("games")&&Flow::IsFolder(cfg["games"]))folder=cfg["games"];scan();}
 void Menu::folders(){dirs=Flow::ListFolders(picker);dirs.erase(std::remove_if(dirs.begin(),dirs.end(),[](const std::string& s){auto tail=s.size()>=4?s.substr(s.size()-4):"";std::transform(tail.begin(),tail.end(),tail.begin(),[](unsigned char c){return std::tolower(c);});return tail==".nup";}),dirs.end());folder_cursor=0;}
 std::vector<std::string> Menu::message_lines(){
     std::vector<std::string> lines;std::istringstream input(detail);std::string paragraph;
@@ -67,8 +67,23 @@ void Menu::open_memory(){
 }
 void Menu::offer_update(const std::string& version,uint64_t size){working=false;update_version=version;update_size=size;screen=Screen::Update;}
 void Menu::offer_restart(){working=false;screen=Screen::Restart;}
+bool Menu::begin_startup_check(Action requested,bool operation_active){
+    if(!automatic_updates||requested==Action::CheckUpdate)startup_check_pending=false;
+    if(!startup_check_pending||operation_active||!in_library()||requested!=Action::None)return false;
+    startup_check_pending=false;return true;
+}
+void Menu::finish_auto_check(bool failed,bool canceled){working=false;cancel=false;screen=Screen::Library;update_notice=failed&&!canceled?"Não foi possível verificar atualizações. R permite tentar novamente.":"";}
 Request Menu::update(Keys k){
     if(working){if(k.b)cancel=true;return {};}
+    if(screen==Screen::Settings){
+        if(k.b){screen=Screen::Library;return {};}
+        if(k.a||k.left||k.right){
+            auto cfg=Flow::ReadSettings(Flow::kMenuCfg);cfg["check_updates"]=automatic_updates?"0":"1";
+            if(Flow::WriteSettings(Flow::kMenuCfg,cfg))automatic_updates=!automatic_updates;
+            else report("Não foi possível salvar","A preferência anterior foi mantida.");
+        }
+        return {};
+    }
     if(screen==Screen::Message){
         if(k.a||k.b)screen=Screen::Library;
         if(k.up&&message_scroll>0)--message_scroll;
@@ -101,7 +116,8 @@ Request Menu::update(Keys k){
         return {};
     }
     if(k.plus)return {Action::Exit,{}};
-    if(k.r)return {Action::CheckUpdate,{},{}};
+    if(k.r){update_notice.clear();return {Action::CheckUpdate,{},{}};}
+    if(k.l){screen=Screen::Settings;return {};}
     if(k.minus){picker=Flow::IsFolder(folder)?folder:"/";folders();screen=Screen::Picker;return {};}
     if(k.x){scan();return {};}
     if(games.empty())return {};
@@ -124,7 +140,7 @@ void Menu::draw(Canvas& c){
     text(c,116,53,"N Launcher",29);text(c,116,80,"Sua biblioteca, direto no console.",16,muted);
     c.FillRoundRect(1040,31,202,34,17,panel);text(c,1058,54,"SWITCH 2  /  " NX2LINK_VERSION,14,accent);
     c.FillRect(115,101,1128,1,line);
-    text(c,116,139,"BIBLIOTECA",13,accent);
+    text(c,116,139,"BIBLIOTECA",13,accent);text(c,875,139,"L  Ajustes",14,muted);
     text(c,1050,139,std::to_string(games.size())+" jogos encontrados",14,muted);
     if(games.empty()){
         text(c,155,260,"Sua biblioteca começa aqui",36);
@@ -151,13 +167,21 @@ void Menu::draw(Canvas& c){
             text(c,x+202,y+180,g.id.empty()?"ID indisponível":g.id,11,muted);
         }
     }
+    if(!update_notice.empty())text(c,116,607,fit(update_notice,1125,16),16,muted);
     c.FillRoundRect(116,620,1125,37,9,panel);text(c,132,644,fit(folder,1080,15),15,muted);
     text(c,117,692,"A  Jogar",19,accent);text(c,258,692,"Y  Opções",18);text(c,430,692,"X  Recarregar",18,muted);
     text(c,641,692,"−  Pasta",18,muted);text(c,813,692,"R  Atualizações",18,muted);text(c,1123,692,"+  Sair",18,muted);
     if(screen!=Screen::Library){
         c.FillRect(0,0,1280,720,MakeColor(0,0,0,185));
         c.FillRoundRect(238,126,805,476,22,panel);
-        if(screen==Screen::Picker){
+        if(screen==Screen::Settings){
+            text(c,270,180,"Ajustes do aplicativo",28);
+            c.FillRoundRect(265,241,750,65,10,MakeColor(36,72,69));
+            text(c,283,281,"Verificar atualizações ao abrir",22,accent);
+            text(c,863,281,automatic_updates?"Ativada":"Desativada",19,accent);
+            int y=366;for(const auto& row:WrapLines(font,"Ao abrir o N Launcher, consulta se existe uma nova versão. Você confirma antes de baixar e instalar. A opção R continua disponível.",19,720)){text(c,273,y,row,19,muted);y+=30;}
+            text(c,273,574,"A / Esq / Dir  Alterar   ·   B  Voltar",18,accent);
+        }else if(screen==Screen::Picker){
             text(c,270,171,"Onde estão seus jogos?",28);text(c,270,207,fit(picker,730,16),16,accent);
             if(dirs.empty())text(c,273,274,"Nenhuma subpasta. Y seleciona esta pasta.",19,muted);
             int first=folder_cursor/6*6;

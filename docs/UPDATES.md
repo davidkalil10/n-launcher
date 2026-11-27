@@ -50,3 +50,11 @@ A 0.0.6 mostrou falha genérica de conexão segura no console. A implementação
 ## Teste 0.0.9 → 0.0.10
 
 Com a correção TLS da 0.0.9 instalada, pressione R, confirme 0.0.10, aguarde instalar e pressione A para reabrir. Conferir a versão exibida e a confirmação do novo processo. A mudança 9 → 10 é comparada numericamente; a suíte cobre esse caso. O código de execução permanece o mesmo, para separar o teste do atualizador de mudanças no jogo. Ainda é necessária validação de cada etapa no hardware.
+
+## Consulta automática — 0.0.11
+
+Uma consulta é agendada ao abrir o aplicativo e usa o worker existente antes de permitir outra operação concorrente. A opção padrão é ligada, com preferência check_updates=0/1 em menu.cfg. L abre Ajustes para alterá-la; R permanece manual, inclusive com a consulta ao abrir desativada. Alterar a pasta preserva a preferência e campos desconhecidos.
+
+A consulta usa a janela de progresso existente e permite solicitar cancelamento com B. Não instala automaticamente. Resultado sem versão nova ou erro retorna à biblioteca; erros de rede mostram aviso discreto e podem ser consultados novamente com R. Uma versão nova abre a confirmação e exige um novo A após sua exibição. A consulta manual na mesma abertura consome o agendamento automático, evitando duas requisições seguidas.
+
+Atualizações gravam logs/update-operation.log. Os registros de preparação e abertura não são substituídos pela consulta ao iniciar. Não confundir a execução do Orbitals com validação de download/troca do aplicativo no console. O diagnóstico do Elliot continua separado desta mudança.

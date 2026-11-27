@@ -17,6 +17,10 @@ public:
     void report(std::string title,std::string detail,bool busy=false,float fraction=-1);
     void offer_update(const std::string& version,uint64_t size);
     void offer_restart();
+    void finish_auto_check(bool failed,bool canceled=false);
+    bool startup_updates_enabled()const{return automatic_updates;}
+    bool begin_startup_check(Action requested,bool operation_active);
+    bool in_library()const{return screen==Screen::Library;}
     void finish_job(std::string title,std::string detail);
     bool busy() const{return working;}
     bool wants_cancel() const{return cancel;}
@@ -32,10 +36,11 @@ private:
     SwitchFrontend::Ui::Font font;
     std::string folder{Flow::kDefaultGames},picker{ "/" },title,detail;
     std::vector<std::string> dirs;
-    enum class Screen {Library,Picker,Options,Message,Memory,Update,Restart} screen{Screen::Library};
+    enum class Screen {Library,Picker,Options,Message,Memory,Update,Restart,Settings} screen{Screen::Library};
     int selected{},cursor{},folder_cursor{},memory_cursor{};
     nx2link::MemoryProfile memory{};std::string update_version;uint64_t update_size{};
-    bool working{},cancel{};float progress{-1};
+    bool working{},cancel{},automatic_updates{true},startup_check_pending{true};float progress{-1};
+    std::string update_notice;
     std::size_t message_scroll{};unsigned frames{};
 };
 }

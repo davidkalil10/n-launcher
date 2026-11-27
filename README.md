@@ -11,7 +11,7 @@ Nintendo Switch 2 homebrew for preparing and launching NUP backups directly on t
 
 - **Pokopia, split NUP:** graphics, audio, controls, saving and loading have been validated on the console.
 - **Orbitals:** launching has been confirmed after adding support for self-contained packages marked as updates. Audio, saves and return to hbmenu still need separate validation for this title.
-- **In-app updates:** available from version 0.0.9 with the corrected TLS transport. Version 0.0.10 provides the next update for testing download, installation and restart on the console; that complete flow is still awaiting hardware confirmation.
+- **In-app updates:** version 0.0.9 introduced the corrected TLS transport. Version 0.0.11 checks for new releases automatically on startup; download, installation and restart still require validation on the console.
 
 N Launcher remains experimental. Compatibility and validation results apply to the individual titles and features tested.
 
@@ -19,7 +19,7 @@ N Launcher remains experimental. Compatibility and validation results apply to t
 
 Download the ZIP from the [latest release](https://github.com/davidkalil10/n-launcher/releases/latest) and extract it to your SD card. The application is installed at **`/switch/n-launcher/n-launcher.nro`**. Open **N Launcher** through hbmenu with kaiHEN active. Replacing the NRO does not require rebooting or reactivating kaiHEN.
 
-New installations are manual. **Versions 0.0.8 and earlier need a manual upgrade to 0.0.9 or newer** because their TLS connection setup can fail before downloading. On newer versions, press **R — Updates** to check GitHub, review the available version and confirm installation. The downloaded NRO is verified before replacement, and the previous copy is kept until the new version starts and confirms the update. See [updates and recovery](docs/UPDATES.md).
+New installations are manual. **Versions 0.0.8 and earlier need a manual upgrade to 0.0.9 or newer** because their TLS connection setup can fail before downloading. From version 0.0.11, a startup check looks for new releases automatically. Review and confirm the available version before anything is downloaded or installed. Use **L — App settings** to disable startup checks, or **R — Updates** to check manually. Connection errors return to the library and do not prevent game operations. The downloaded NRO is verified before replacement, and the previous copy is kept until the new version starts and confirms the update. See [updates and recovery](docs/UPDATES.md).
 
 Data from the old `/switch/nx2-link/` directory is migrated to `n-launcher` by renaming, without copying gigabytes of cache. You can also rename the old directory manually before extracting the ZIP. Existing settings, cache and saves are preserved. Conflicting entries in both directories are not overwritten; resolve the conflict before continuing. Use the new application after migration rather than an older diagnostic build.
 
@@ -34,6 +34,7 @@ The application interface currently uses Portuguese. All control descriptions be
 | **A — Play** | Verify and prepare the required data, then start the generic loader. |
 | **Y — Options** | Open per-game memory settings, prepare without launching, inspect a NUP or view logs. |
 | **X — Refresh** | Refresh the library. |
+| **L — App settings** | Enable or disable checking for updates on startup. |
 | **R — Updates** | Check for and install public N Launcher releases. |
 | **+ — Exit** | Exit to hbmenu. |
 
@@ -59,7 +60,7 @@ NUPs and their split parts are read-only inputs. Compressed RomFS files larger t
   content/           verified, decompressed data
   <ID>/game.cfg      per-title settings
   <ID>/save/         runtime saves
-  logs/              preparation and launch logs
+  logs/              launch logs and separate updater logs
   .runtime/          embedded loader installation
 ```
 

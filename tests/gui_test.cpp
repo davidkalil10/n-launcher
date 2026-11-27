@@ -20,5 +20,16 @@ int main(int argc,char** argv){
     auto settings=Flow::ReadSettings(Flow::kMenuCfg);assert(settings["games"]==Flow::kDefaultGames);
     nlauncher::Menu again;again.start();keys={};keys.a=true;assert(again.update(keys).action==nlauncher::Action::Launch);
     keys={};keys.r=true;assert(again.update(keys).action==nlauncher::Action::CheckUpdate);again.offer_update("0.0.7",20000000);keys={};keys.a=true;assert(again.update(keys).action==nlauncher::Action::InstallUpdate);again.offer_restart();keys={};keys.b=true;assert(again.update(keys).action==nlauncher::Action::Exit);
-    std::cout<<"PASS: six synthetic titles, split metadata, accents, actions, busy cancellation, profile persistence and update confirmation\n";
+    nlauncher::Menu startup;startup.start();assert(startup.startup_updates_enabled());
+    assert(startup.begin_startup_check(nlauncher::Action::None,false));assert(!startup.begin_startup_check(nlauncher::Action::None,false));
+    nlauncher::Menu delayed;delayed.start();assert(!delayed.begin_startup_check(nlauncher::Action::None,true));assert(delayed.begin_startup_check(nlauncher::Action::None,false));
+    nlauncher::Menu manual;manual.start();assert(!manual.begin_startup_check(nlauncher::Action::CheckUpdate,false));assert(!manual.begin_startup_check(nlauncher::Action::None,false));
+    auto startupCfg=Flow::ReadSettings(Flow::kMenuCfg);startupCfg["other_setting"]="keep";Flow::WriteSettings(Flow::kMenuCfg,startupCfg);
+    keys={};keys.l=true;startup.update(keys);assert(!startup.in_library());keys={};keys.a=true;startup.update(keys);assert(!startup.startup_updates_enabled());keys={};keys.b=true;startup.update(keys);
+    nlauncher::Menu disabled;disabled.start();assert(!disabled.startup_updates_enabled());assert(!disabled.begin_startup_check(nlauncher::Action::None,false));
+    keys={};keys.minus=true;disabled.update(keys);keys={};keys.y=true;disabled.update(keys);auto persisted=Flow::ReadSettings(Flow::kMenuCfg);assert(persisted["check_updates"]=="0"&&persisted["other_setting"]=="keep");
+    keys={};keys.r=true;assert(disabled.update(keys).action==nlauncher::Action::CheckUpdate);disabled.report("Auto","",true);disabled.finish_auto_check(true);assert(disabled.in_library()&&!disabled.busy());
+    keys={};keys.l=true;disabled.update(keys);keys={};keys.a=true;disabled.update(keys);keys={};keys.b=true;disabled.update(keys);nlauncher::Menu enabled;enabled.start();assert(enabled.startup_updates_enabled());
+    enabled.report("Auto","",true);enabled.finish_auto_check(false);assert(enabled.in_library()&&!enabled.busy());
+    std::cout<<"PASS: six synthetic titles, split metadata, accents, actions, busy cancellation, profile persistence, startup-check policy, preferences and update confirmation\n";
 }

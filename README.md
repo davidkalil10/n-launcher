@@ -11,8 +11,9 @@ Nintendo Switch 2 homebrew for preparing and launching NUP backups directly on t
 
 - **Pokopia, split NUP:** graphics, audio, controls, saving and loading have been validated on the console.
 - **Orbitals:** launching has been confirmed after adding support for self-contained packages marked as updates. Audio, saves and return to hbmenu still need separate validation for this title.
-- **The Adventures of Elliot: The Millennium Tales, full game, split NUP:** launching has been confirmed with the standard 0.0.11 build. An earlier preparation crash in 0.0.10 remains unexplained; no diagnostic build was needed for the successful attempt. Audio, saves and return to hbmenu still need separate validation for this title.
-- **In-app updates:** version 0.0.9 introduced the corrected TLS transport. Version 0.0.11 checks for new releases automatically on startup; update installation and automatic reopening have been exercised on the console. An Elliot preparation crash on the first session after updating remains under investigation; a later manual reopening succeeded without rebooting the console.
+- **The Adventures of Elliot: The Millennium Tales, full game, split NUP:** launching has been confirmed, including recovery from the frontend presentation timeout fixed in this release. Audio, saves and return to hbmenu still need separate validation for this title.
+- **The Legend of Zelda: Ocarina of Time, split NUP:** startup, the opening cutscene and the following loading screen completed with the combined display/synchronization fixes. Video and audio were observed on the console using Split Fiction as the host and Automatic memory settings. Saving and loading still need separate validation.
+- **In-app updates:** automatic startup checks and confirmed installation are available. Version 0.0.16 includes the validated display-timeout handling and bounded lock backoff. Game data, memory profiles and saves are preserved.
 
 N Launcher remains experimental. Compatibility and validation results apply to the individual titles and features tested.
 

@@ -19,3 +19,7 @@ The dedicated test asset is labelled N Launcher - Display Fix, version 0.0.14, w
 Pokopia opened on the console with the 0.0.14 Display Fix over Split Fiction. This validates recovery from the observed frontend abort in that test, not every GPU failure or all games. The two-second timeout's deeper cause is still unknown. Audio/controls/save behavior were not separately retested by this result.
 
 The 0.0.15 candidate combines that frontend fix with the isolated PR44 backoff previously prepared in 0.0.13: 16 fast yields followed by 100 us timed sleeps on contended runtime locks, including the native split/cache backend. It keeps base loader 0.1.3; unrelated 0.1.7 features are not imported. The original upstream snapshot is verified and unchanged. Both bounded-wait test suites are retained in host CI. Keep the validated 0.0.14 test NRO available while testing the combined build.
+
+## Combined hardware confirmation and stable release
+
+The 0.0.15 Sync Test started Zelda in about 30 seconds with sound and progressed beyond the opening cutscene and subsequent loading screen into normal play. The host remained Split Fiction and memory stayed Automatic. Zelda save/load was not separately tested. Stable 0.0.16 contains the same display and lock changes under the normal product title; the higher version permits updater migration from 0.0.15. This result does not establish support for all hosts or prove the deeper reason for the original display release delay.

@@ -62,3 +62,7 @@ Atualizações gravam logs/update-operation.log. Os registros de preparação e 
 ## Observação de estabilidade após reabrir
 
 Há um relato de encerramento na preparação do Elliot na primeira sessão após atualizar e usar A Reabrir agora. Uma abertura posterior funcionou sem reboot. A relação causal continua em investigação; ver ELLIOT_INVESTIGATION.md. Como contorno, é possível usar B após instalar, voltar ao hbmenu e abrir manualmente. O código não foi alterado com base apenas nessa correlação.
+
+## Atualização das builds de teste para 0.0.16
+
+Usar preferencialmente R no N Launcher normal (/switch/n-launcher.nro no SD desta sessão, ou o caminho padrão /switch/n-launcher/n-launcher.nro). A Sync Test 0.0.15 também pode atualizar, mas o updater substitui a NRO de onde foi iniciado: nesse caso, não apagar esse arquivo pensando que ainda é apenas o teste. As builds Diagnostic desativam atualizações. Após instalar, sair para o hbmenu e abrir manualmente a cópia atualizada; conferir 0.0.16 antes de apagar as outras NROs de diagnóstico/teste. Não apagar a pasta switch/n-launcher nem .runtime/content/configurações/saves. Não há necessidade de refazer a ativação do kaiHEN.

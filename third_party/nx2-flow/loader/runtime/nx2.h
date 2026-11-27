@@ -31,11 +31,17 @@ typedef int32_t s32;
 #undef NX2_TOOL
 #define NX2_TOOL "nx2-flow"
 #define NX2_NAME nx2_game_id
-extern char nx2_game_id[17];           // the title id, 16 hex digits
+extern char nx2_game_id[17];               // the title id, 16 hex digits
+extern char nx2_game_display_version[16];  // display version from the NUP file's metadata/NACP (empty if absent)
+int nx2_nup_meta_display_version(const u8 *block, u32 block_size, char out[16]);
+extern u64 nx2_game_title_id;          // the title id, as a 64-bit integer
 const char *nx2_home(void);            // "/nx2-flow/<title id>", as the file system service is given it
 const char *nx2_file(const char *name);  // "sdmc:/nx2-flow/<title id>/<name>": good until eight more have been asked for
 #define NX2_F(name) nx2_file(name)
-extern u32 nx2_game_mb, nx2_game_room_mb, nx2_game_apart_mb, nx2_game_remote_mb, nx2_game_sysres_kb;
+extern u32 nx2_game_mb, nx2_game_room_mb, nx2_game_apart_mb, nx2_game_fixed_mb, nx2_game_auto_heaps, nx2_game_remote_mb, nx2_game_sysres_kb;
+extern s64 nx2_game_save_data_size, nx2_game_save_journal_size;
+int nx2_nup_meta_first_fact(const u8 *meta, u64 meta_size);
+int nx2_nup_meta_save_sizes(const u8 *meta, u64 meta_size, int first_fact, s64 *out_data, s64 *out_journal);
 int nx2_game_open(const char *nup_path);  // 0: the game's NUP file was read and its modules are in memory
 extern u8 *nx2_big_at;                    // the stretch of the program's memory kept for the loader's large pieces (game.c)
 extern u64 nx2_big_size;
@@ -47,6 +53,10 @@ int nx2_merge_plan(const char *wish);     // merge.c: the modules that needn't b
 int nx2_merge_map(void *ro_service);      // ... and that image mapped by the loader service, after the modules kept whole
 u64 nx2_game_rom_size(void);               // the game's files as one image, made from the NUP's (and a mods folder's) as it is read
 u32 nx2_game_rom_read(u64 offset, u8 *to, u64 size, u64 *got);
+u32 nx2_game_aoc_count(void);              // its add-on content (kind 2 packages of the NUP file), each an image of its own
+u32 nx2_game_aoc_index(u32 which);
+u64 nx2_game_aoc_size(u32 which);
+u32 nx2_game_aoc_read(u32 which, u64 offset, u8 *to, u64 size, u64 *got);
 #else
 #define NX2_HOME "/" NX2_TOOL "/" NX2_NAME  // (as the file system service is given it)
 #define NX2_DIR "sdmc:" NX2_HOME "/"
@@ -135,6 +145,10 @@ void nx2_rom_open(void);
 int nx2_rom_ipc(u8 *message);  // a message to the file system service: 1 if answered here
 int nx2_aoc_ipc(u8 *message);  // a message to the add-on content service: 1 if answered here
 void nx2_save_open(void);      // the game's saved data: a folder of the card (<folder>/save)
+int nx2_has_sd_save_fs(void);
+u32 nx2_create_cache_storage(s32 index, s64 data_size, s64 journal_size);
+u32 nx2_extend_save_data(const void *uid, s64 data_size, s64 journal_size);
+u32 nx2_get_save_data_size(s64 *out_data, s64 *out_journal, const void *uid, u32 (*real)(s64 *, s64 *, const void *));
 int nx2_save_before(u8 *message, char (*paths)[0x301], u32 *handle);
 void nx2_save_after(u8 *message, int how);
 

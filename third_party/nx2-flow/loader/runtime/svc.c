@@ -6,6 +6,11 @@
 #include <switch.h>
 
 #include "nx2.h"
+#include "spinlock.h"
+#include "preselected.h"
+#include "bcat_offline.h"
+
+static Nx2BcatState bcat_state;
 
 static u8 *heap_base;
 static u64 heap_max, heap_now;
@@ -100,17 +105,18 @@ static int budget = 1500;
 void nx2_svc_verbose(int on) { verbose = on; }
 
 static void sessions_take(void) {
-    while (__atomic_exchange_n(&session_lock, 1, __ATOMIC_ACQUIRE)) svcSleepThread(0);
+    nx2_spin_lock(&session_lock);
 }
-static void sessions_give(void) { __atomic_store_n(&session_lock, 0, __ATOMIC_RELEASE); }
+static void sessions_give(void) { nx2_spin_unlock(&session_lock); }
 static const char *session_name(u32 h) {
     for (u32 k = 0; h && k < SESSIONS; k++)
         if (sessions[k].handle == h) return sessions[k].name;
     return "?";
 }
-// (the sessions the port answers for: the file system's, the applet's, add-on content's, and sm: itself)
+// (the sessions the port answers for: the file system's, the applet's, add-on content's, the loader's, bcat's, and sm: itself)
 static int session_kept(const char *n) {
     return (n[0] == 'f' && n[1] == 's' && n[2] == 'p') || (n[0] == 'a' && n[1] == 'p' && n[2] == 'p') || (n[0] == 'a' && n[1] == 'o' && n[2] == 'c') ||
+           (n[0] == 'l' && n[1] == 'd' && n[2] == 'r') || (n[0] == 'b' && n[1] == 'c' && n[2] == 'a' && n[3] == 't') ||
            (n[0] == 's' && n[1] == 'm' && n[2] == ':') || n[0] == '~';
 }
 static void session_forget(u32 h) {  // the handle is being closed: its number may be another session's next
@@ -209,18 +215,22 @@ static u32 applet_sdk, applet_host, applet_proxy;
 #define APPLET_ROOT 1u  // the session's own object, as the SDK is told
 static u32 applet_receive;  // the message being sent asks for the system's next message to the program
 static u32 applet_state, applet_event;  // ICommonStateGetter's object, and the handle of its event (a message is waiting)
-static u32 applet_asked;                // the object the request being sent asks command 0 of
+static u32 applet_funcs;                // IApplicationFunctions's object (returned by IApplicationProxy command 20)
+static u32 applet_asked, applet_asked_cmd;  // the object and command the request being sent asks of
 static int applet_message = 1;          // the first message is still to be given (below)
 
-// the answer to a request sent on: which object is the state getter, and which handle its event
+// the answer to a request sent on: which object is the state getter, application functions, and which handle its event
 static void applet_answered(const u8 *m, u32 handle) {
-    if (applet_asked == applet_proxy && !applet_state && m[0x10] == 1) {  // GetCommonStateGetter
+    if (applet_asked == applet_proxy && applet_asked_cmd == 0 && !applet_state && m[0x10] == 1) {  // GetCommonStateGetter
         applet_state = (u32)m[0x30] | (u32)m[0x31] << 8 | (u32)m[0x32] << 16 | (u32)m[0x33] << 24;
         nx2_log("[applet] the state getter is object %u\n", (u64)applet_state);
-    } else if (applet_state && applet_asked == applet_state && handle && !applet_event) {  // GetEventHandle
+    } else if (applet_asked == applet_proxy && applet_asked_cmd == 20 && !applet_funcs && m[0x10] == 1) {  // GetApplicationFunctions
+        applet_funcs = (u32)m[0x30] | (u32)m[0x31] << 8 | (u32)m[0x32] << 16 | (u32)m[0x33] << 24;
+        nx2_log("[applet] the application functions are object %u\n", (u64)applet_funcs);
+    } else if (applet_state && applet_asked == applet_state && applet_asked_cmd == 0 && handle && !applet_event) {  // GetEventHandle
         applet_event = handle;
     }
-    applet_asked = 0;
+    applet_asked = 0, applet_asked_cmd = 0;
 }
 
 static void applet_named(u32 sdk_handle) {
@@ -228,6 +238,8 @@ static void applet_named(u32 sdk_handle) {
     Service *p = appletGetServiceSession_Proxy();
     if (!serviceIsActive(p) || !p->object_id) return;
     applet_host = p->session, applet_proxy = p->object_id, applet_sdk = sdk_handle;
+    applet_funcs = 0, applet_asked = 0, applet_asked_cmd = 0;
+    nx2_preselected_reset(0);
     nx2_log("[applet] the SDK's applet session (%x) goes to the host library's (%x, proxy object %u)\n", (u64)sdk_handle, (u64)applet_host,
             (u64)applet_proxy);
 }
@@ -274,8 +286,21 @@ static int applet_ipc(u8 *m, u32 *h, u32 type, u32 cmd) {
         nx2_ipc_answer(m, 0, NULL, 0, 0);
         return 1;
     }
-    applet_asked = kind == 1 && cmd == 0 ? object : 0;
+    if (kind == 2 && applet_funcs && object == applet_funcs) applet_funcs = 0;
+    applet_asked = (kind == 1 && (cmd == 0 || cmd == 20)) ? object : 0;
+    applet_asked_cmd = cmd;
     applet_receive = kind == 1 && object == applet_state && cmd == 1;  // (ReceiveMessage: the system's messages to the program)
+#ifdef NX2_LOADER
+    // GetDisplayVersion (IApplicationFunctions command 23): return the NUP game's display version rather than the donor title's,
+    // so games validating saved data or replays against nn::oe::GetDisplayVersion do not see the donor's version string.
+    if (kind == 1 && applet_funcs && object == applet_funcs && cmd == 23 && nx2_game_display_version[0]) {
+        u8 ver[16] = {0};
+        for (u32 k = 0; k < 15 && nx2_game_display_version[k]; k++) ver[k] = (u8)nx2_game_display_version[k];
+        nx2_log("[applet] the game asks its display version (command 23): told \"%s\" (from the NUP file)\n", nx2_game_display_version);
+        nx2_ipc_answer(m, 0, ver, sizeof ver, 0);
+        return 1;
+    }
+#endif
     // The SDK's start waits for the system's message that the program has the screen (15: the focus changed), and the host library
     // took that message at its own start: the SDK waited for good, a black screen (log, 2026-11-22). It is given once more, here.
     if (kind == 1 && object == applet_state && cmd == 1 && applet_message) {  // ICommonStateGetter's ReceiveMessage
@@ -413,10 +438,11 @@ static int stood_plain(const char *service, u32 cmd, u32 *out0, u32 *out1) {
 // a request on such a session, answered here
 static void stood_answer(u64 *r, u8 *m, u32 h, const char *who) {
     const u32 type = rd32(m) & 0xFFFF, index = (u32)(who[2] - 'A') % STOOD;
-    const int domain = who[1] == 'd', control = type == 5 || type == 7;
     const u8 *q = payload(m, "SFCI");
-    const u32 cmd = q ? rd32(q + 8) : ~0u;
-    if (type == 2) {  // the session is closed: what the kernel says of one
+    const int tipc = !q && type >= 16;
+    const int domain = !tipc && who[1] == 'd', control = !tipc && (type == 5 || type == 7);
+    const u32 cmd = q ? rd32(q + 8) : tipc ? type - 16 : ~0u;
+    if (type == 2 || type == 15) {  // the session is closed (CMIF 2 or TIPC 15): what the kernel says of one
         r[0] = 0xF601;
         return;
     }
@@ -443,7 +469,7 @@ static void stood_answer(u64 *r, u8 *m, u32 h, const char *who) {
         // the eight bytes before "SFCI"'s sixteen)
         const u8 *dom = domain && q && q - m >= 16 ? q - 16 : NULL;
         const int first = dom ? rd32(dom + 4) == 0x100 : who[1] == 'n';
-        const u32 in_bytes = dom ? (u32)dom[2] | (u32)dom[3] << 8 : q ? (w1 & 0x3FF) * 4 - (u32)(q - m - 8) : 0;
+        const u32 in_bytes = dom ? (u32)dom[2] | (u32)dom[3] << 8 : q ? (w1 & 0x3FF) * 4 - (u32)(q - m - 8) : tipc ? (w1 & 0x3FF) * 4 : 0;
         result = stood_result(who + 3, first, in_bytes, reads);
         // (In a domain a new object is a number, not a handle, and it comes after whatever else the answer has: right after
         // the answer's header for a command that hands back an object and nothing else, as the ones that open an interface do
@@ -469,10 +495,16 @@ static void stood_answer(u64 *r, u8 *m, u32 h, const char *who) {
         if (copy) put32(m + o, copy), o += 4;
         if (move) put32(m + o, move), o += 4;
     }
-    u8 *d = m + ((o + 15) & ~15u);
-    if (domain && !control) put32(d, object ? 1 : 0), d += 16;  // (a domain's answer begins with how many objects it hands back)
-    put32(d, 0x4F434653), put32(d + 8, result), put32(d + 16, control ? word : plain ? out0 : object);  // "SFCO", the result; then the one number, or the new object's
-    if (plain) put32(d + 20, out1);
+    if (tipc) {
+        // TIPC answers carry no 16-byte alignment padding and no "SFCO" header: Result begins at m + o immediately.
+        put32(m + o, result);
+        if (plain) put32(m + o + 4, out0), put32(m + o + 8, out1);
+    } else {
+        u8 *d = m + ((o + 15) & ~15u);
+        if (domain && !control) put32(d, object ? 1 : 0), d += 16;  // (a domain's answer begins with how many objects it hands back)
+        put32(d, 0x4F434653), put32(d + 8, result), put32(d + 16, control ? word : plain ? out0 : object);  // "SFCO", the result; then the one number, or the new object's
+        if (plain) put32(d + 20, out1);
+    }
     put32(m + 4, ((copy || move) ? 0x80000000u : 0) | (0xF0 - o) / 4);
     r[0] = 0;
 }
@@ -517,12 +549,62 @@ static void send_sync(u64 *r, const char *module, u64 off, int log) {
     char text[9] = {0};
     for (u32 k = 0; q && k < 8; k++) text[k] = (q[16 + k] >= 0x20 && q[16 + k] < 0x7F) ? (char)q[16 + k] : 0;
     const char *who = session_name(h);
+    if (nx2_bcat_is_prog_handle(h)) {  // (a virtual IDeliveryCacheProgressService session handle; bcat_offline.h)
+        Nx2BcatReq breq;
+        u32 bkrc = 0;
+        if (nx2_bcat_parse_req(m, &breq) && nx2_bcat_handle_progress(&bcat_state, m, &breq, h, &bkrc)) {
+            r[0] = bkrc;
+            return;
+        }
+    }
     if (who[0] == '~') {  // (a session of the port's own, in place of a service the started-over title may not open)
         const int said = bytes_wanted(who);
         if (said) nx2_log("[ipc] %s (handle %x), the port's own:\n", who, (u64)h), bytes_said("asked", m);
+        if (starts(who + 3, "bcat")) {
+            Nx2BcatReq breq;
+            u32 bkrc = 0, bid = 0;
+            if (nx2_bcat_parse_req(m, &breq)) {
+                if (breq.is_domain && nx2_bcat_is_prog_obj(breq.object_id) && nx2_bcat_handle_progress(&bcat_state, m, &breq, 0, &bkrc)) {
+                    if (said) bytes_said("answered here", m);
+                    r[0] = bkrc;
+                    return;
+                }
+                if (nx2_bcat_try_copy_from_domain(&bcat_state, m, &breq, &bid)) {
+                    if (said) bytes_said("answered here", m);
+                    r[0] = 0;
+                    return;
+                }
+                if ((breq.type == 4 || breq.type == 6) && breq.has_sfci && nx2_bcat_is_sync_cmd(breq.cmd)) {
+                    nx2_bcat_synthesize_sync(&bcat_state, m, &breq, 0x147Au, &bid);
+                    nx2_log("[bcat] stood-in %s command %u: returning offline progress (%s %x, result 147a)\n", who, (u64)breq.cmd,
+                            breq.is_domain ? "object" : "handle", (u64)bid);
+                    if (said) bytes_said("answered here", m);
+                    r[0] = 0;
+                    return;
+                }
+            }
+        }
         stood_answer(r, m, h, who);
         if (said) bytes_said("answered here", m);
         return;
+    }
+    const int is_bcat = starts(who, "bcat");
+    Nx2BcatReq bcat_req;
+    int bcat_req_ok = 0;
+    if (is_bcat) {
+        bcat_req_ok = nx2_bcat_parse_req(m, &bcat_req);
+        if (bcat_req_ok) {
+            u32 bkrc = 0, bid = 0;
+            if (bcat_req.is_domain && nx2_bcat_is_prog_obj(bcat_req.object_id) &&
+                nx2_bcat_handle_progress(&bcat_state, m, &bcat_req, 0, &bkrc)) {
+                r[0] = bkrc;
+                return;
+            }
+            if (nx2_bcat_try_copy_from_domain(&bcat_state, m, &bcat_req, &bid)) {
+                r[0] = 0;
+                return;
+            }
+        }
     }
     const int is_sm = who[0] == 's' && who[1] == 'm' && who[2] == ':';
     // A later SDK speaks to sm: in the system's newer, shorter form (TIPC: the command is in the message's type, 16 and up, and the
@@ -592,6 +674,20 @@ static void send_sync(u64 *r, const char *module, u64 off, int log) {
         r[0] = 0;
         return;
     }
+    const int is_applet = who[0] == 'a' && who[1] == 'p' && who[2] == 'p' && who[3] == 'l' && who[4] == 'e' && who[5] == 't';
+    int presel_inflight = NX2_PRESEL_INFLIGHT_NONE;
+    if (is_applet) {
+#ifdef __SWITCH2__
+        const u32 proxy = applet_sdk && (u32)r[0] == applet_sdk ? applet_proxy : 0;
+#else
+        const u32 proxy = 0;
+#endif
+        if (nx2_preselected_before(m, proxy, &presel_inflight)) {
+            if (log) nx2_log("[ipc] %s type %u command %d: answered here (preselected user), from %s+%x\n", who, (u64)type, (s64)(s32)cmd, module, off);
+            r[0] = 0;
+            return;
+        }
+    }
 #ifdef __SWITCH2__
     // The SDK asks sm: for audout:u, which a Switch 2 refuses this program: it is given a new session of the audio output manager
     // main.c opened through aud:u instead (the same object). The request sent is "clone this session", to that manager; its answer
@@ -648,6 +744,16 @@ static void send_sync(u64 *r, const char *module, u64 off, int log) {
     }
 #endif
     if ((save == 1 || save == 5) && !rc) nx2_save_after(m, save);
+    if (is_applet && !rc && presel_inflight) {
+        const u32 prev_af = nx2_preselected_app_funcs();
+        const u32 synth = nx2_preselected_after(m, presel_inflight);
+        if (presel_inflight == NX2_PRESEL_INFLIGHT_GET_APP_FUNCS) {
+            const u32 cur_af = nx2_preselected_app_funcs();
+            if (cur_af && cur_af != prev_af) nx2_log("[applet] application functions is object %u\n", (u64)cur_af);
+        } else if (synth) {
+            nx2_log("[applet] PopLaunchParameter(PreselectedUser) returned 0x480: synthesized virtual IStorage object %x\n", (u64)synth);
+        }
+    }
 #ifdef __SWITCH2__
     // (the answer to "clone this session", for an SDK that asked in the newer form: the result where that form has it, after the handle)
     if (tipc && h != (u32)r[0] && !rc) {
@@ -657,8 +763,21 @@ static void send_sync(u64 *r, const char *module, u64 off, int log) {
         m[4] = 1, m[5] = 0;  // one word of data (the handle's descriptor is kept)
     }
 #endif
-    const u8 *a = payload(m, "SFCO");
-    u32 result = a ? rd32(a + 8) : 0, got = rc ? 0 : answer_handle(m);
+    const u8 *a = q ? payload(m, "SFCO") : NULL;
+    u32 result = a ? rd32(a + 8) : (!q && type >= 16 ? short_result(m) : 0), got = rc ? 0 : answer_handle(m);
+    if (is_bcat && !rc && bcat_req_ok && (bcat_req.type == 4 || bcat_req.type == 6) && bcat_req.has_sfci) {
+        if (nx2_bcat_is_sync_cmd(bcat_req.cmd) && nx2_bcat_is_offline_donor_error(result)) {
+            u32 bid = 0;
+            nx2_bcat_synthesize_sync(&bcat_state, m, &bcat_req, result, &bid);
+            nx2_log("[bcat] %s command %u returned %x (no donor BCAT storage): returning offline progress (%s %x, result %x)\n", who,
+                    (u64)bcat_req.cmd, (u64)result, bcat_req.is_domain ? "object" : "handle", (u64)bid, (u64)result);
+            result = 0, got = 0;
+        } else if (nx2_bcat_is_cancel_cmd(bcat_req.cmd) && nx2_bcat_is_offline_donor_error(result)) {
+            nx2_bcat_reply_ok(m, bcat_req.is_domain);
+            nx2_log("[bcat] %s command %u returned %x: answered done\n", who, (u64)bcat_req.cmd, (u64)result);
+            result = 0, got = 0;
+        }
+    }
     if (is_sm && cmd == 1 && !rc && !got) {
         const u32 said = q ? result : short_result(m);
         if (said == 0x1015) {
@@ -671,12 +790,21 @@ static void send_sync(u64 *r, const char *module, u64 off, int log) {
             for (u32 k = 0; k < 0x100; k++) refusal[k] = m[k];
             if (never_stood(text))
                 nx2_log("[ipc]   and the port can't stand in for that one: a game that needs it needs another game to be started over\n");
-            else if (stood_count < STOOD && (forced || !family_given(m, asked, h, text)) && (mine = stood_handle()) != 0) {
-                const u32 index = stood_count++;
-                for (u32 k = 0; k < 9; k++) stood[index].name[k] = text[k];
-                stood_set(mine, 0, index, text);
-                nx2_log("[ipc]   THE PORT STANDS IN FOR \"%s\": the game is given a session that answers every request with nothing. What the game "
-                        "does with that service won't work; the game itself goes on\n", text);
+            else if (__atomic_load_n(&stood_count, __ATOMIC_RELAXED) < STOOD && (forced || !family_given(m, asked, h, text))) {
+                u32 index = __atomic_load_n(&stood_count, __ATOMIC_RELAXED);
+                int claimed = 0;
+                while (index < STOOD) {
+                    if (__atomic_compare_exchange_n(&stood_count, &index, index + 1, 0, __ATOMIC_ACQ_REL, __ATOMIC_RELAXED)) {
+                        claimed = 1;
+                        break;
+                    }
+                }
+                if (claimed && (mine = stood_handle()) != 0) {
+                    for (u32 k = 0; k < 9; k++) stood[index].name[k] = text[k];
+                    stood_set(mine, 0, index, text);
+                    nx2_log("[ipc]   THE PORT STANDS IN FOR \"%s\": the game is given a session that answers every request with nothing. What the game "
+                            "does with that service won't work; the game itself goes on\n", text);
+                }
             }
             if (mine) {  // the answer sm: would have given, in the form the game's SDK asked in: a handle, and "done"
                 for (u32 k = 0; k < 0x100; k++) m[k] = 0;
@@ -808,7 +936,24 @@ int nx2_svc(u64 *r, u32 n) {
         nx2_log("[svc] %2x %s (%x, %x, %x, %x) from %s+%x%s\n", (u64)n, name_of(n), r[0], r[1], r[2], r[3], module, off,
                 seen == 2 && !verbose ? " (its later uses aren't logged)" : "");
     }
-    if (n == 0x16) session_forget((u32)r[0]);  // CloseHandle
+    if (n == 0x16) {
+        session_forget((u32)r[0]);  // CloseHandle
+        if (nx2_bcat_is_prog_handle((u32)r[0])) {
+            nx2_bcat_close_prog_handle(&bcat_state, (u32)r[0]);
+            r[0] = 0;
+            return 1;
+        }
+        if (nx2_bcat_is_event_handle((u32)r[0])) {
+            nx2_bcat_close_event_handle(&bcat_state, (u32)r[0]);
+            r[0] = 0;
+            return 1;
+        }
+    }
+    if ((n == 0x17 || n == 0x12) && nx2_bcat_is_event_handle((u32)r[0])) {
+        nx2_bcat_clear_event(&bcat_state, (u32)r[0]);
+        r[0] = 0;
+        return 1;
+    }
     // (a handle of the port's own, standing for a service the started-over title may not open: closed, reset, waited on here)
     if ((n == 0x16 || n == 0x17 || n == 0x12) && STOOD_HANDLE(r[0])) {
         r[0] = 0;
@@ -816,8 +961,22 @@ int nx2_svc(u64 *r, u32 n) {
     }
     if (n == 0x18 && r[1] && r[2] >= 1 && r[2] <= 64) {  // WaitSynchronization(out index, handles, count, timeout)
         const u32 *all = (const u32 *)r[1];
+#ifdef __SWITCH2__
+        // The applet's event, with the focus message still to give: handle both single-handle and multi-handle waits
+        if (applet_message && applet_event) {
+            for (u32 k = 0; k < (u32)r[2]; k++)
+                if (all[k] == applet_event) {
+                    r[0] = 0, r[1] = k;
+                    return 1;
+                }
+        }
+#endif
         u32 real[64], place[64], count = 0, mine = 0;
         for (u32 k = 0; k < (u32)r[2]; k++) {
+            if (nx2_bcat_event_is_signaled(&bcat_state, all[k])) {
+                r[0] = 0, r[1] = k;
+                return 1;
+            }
             if (STOOD_HANDLE(all[k])) mine++;
             else real[count] = all[k], place[count++] = k;
         }
@@ -829,14 +988,6 @@ int nx2_svc(u64 *r, u32 n) {
         }
     }
     switch (n) {
-#ifdef __SWITCH2__
-    case 0x18:  // WaitSynchronization(out index, handles, count, timeout): the applet's event, with the message above still to give
-        if (applet_message && applet_event && r[2] == 1 && *(const u32 *)r[1] == applet_event) {
-            r[0] = 0, r[1] = 0;
-            return 1;
-        }
-        return 0;
-#endif
     case 0x29: {  // GetInfo(out, type, handle, sub)
         // Memory in use (7, and 22 without the system's part): the host library has taken nearly all of it for its own heap, so a
         // game that sizes its heap by what is free (total - used) got 2 MB and its first large allocation failed (A game's nninitStartup; log, 2026-11-22). What's free, as the game is told, is the block set aside for its heap.
@@ -948,7 +1099,17 @@ int nx2_svc(u64 *r, u32 n) {
         const u32 rc = n == 0x2C ? svcMapPhysicalMemory((void *)r[0], r[1]) : svcUnmapPhysicalMemory((void *)r[0], r[1]);
         static u64 mapped;
         static u32 said;
-        const u64 now = n == 0x2C ? __atomic_add_fetch(&mapped, rc ? 0 : r[1], __ATOMIC_RELAXED) : __atomic_sub_fetch(&mapped, rc ? 0 : r[1], __ATOMIC_RELAXED);
+        u64 now;
+        if (rc) {
+            now = __atomic_load_n(&mapped, __ATOMIC_RELAXED);
+        } else if (n == 0x2C) {
+            now = __atomic_add_fetch(&mapped, r[1], __ATOMIC_RELAXED);
+        } else {
+            u64 cur = __atomic_load_n(&mapped, __ATOMIC_RELAXED);
+            do {
+                now = cur > r[1] ? cur - r[1] : 0;
+            } while (!__atomic_compare_exchange_n(&mapped, &cur, now, 1, __ATOMIC_RELAXED, __ATOMIC_RELAXED));
+        }
         const u32 k = __atomic_add_fetch(&said, 1, __ATOMIC_RELAXED);
         // (A refusal is said the first sixteen times and then at each power of two, not every time: a line's caller waits until
         // the card has the line, log.c, and a game that has taken all the memory there is and asks for more at every picture, sixty
@@ -960,7 +1121,7 @@ int nx2_svc(u64 *r, u32 n) {
             svcGetInfo(&total, InfoType_TotalMemorySize, CUR_PROCESS_HANDLE, 0);
             svcGetInfo(&used, InfoType_UsedMemorySize, CUR_PROCESS_HANDLE, 0);
             nx2_log("[svc] %s of %x bytes at %x: %x%s (call %u; %u KB mapped so; the process has %u KB free)\n", n == 0x2C ? "MapPhysicalMemory" : "UnmapPhysicalMemory",
-                    r[1], r[0], (u64)rc, rc ? " (REFUSED)" : "", (u64)k, now >> 10, (total - used) >> 10);
+                    r[1], r[0], (u64)rc, rc ? " (REFUSED)" : "", (u64)k, now >> 10, (total > used ? total - used : 0) >> 10);
 #ifdef __SWITCH2__
             // (What the graphics server holds in this process's name, "remote memory": the two figures the SDK itself asks for when
             // a mapping of the game's is refused for lack of it; nn::os::GetRemoteMemoryUsage, report of 2026-11-25.)
@@ -1070,7 +1231,7 @@ int nx2_svc(u64 *r, u32 n) {
         }
         {
             const u32 given = r[1] && r[2] == 4 ? *(const u32 *)r[1] : 0;
-            static char why[420];
+            static char why[640];
             if (given == 0x1015 && refused_service[0]) {
                 // (put together by hand: this runs as the game's thread, where the C library isn't to be used)
                 const char *parts[3] = {"the game's SDK ended the program: the console refuses the service \"", refused_service,
@@ -1086,9 +1247,16 @@ int nx2_svc(u64 *r, u32 n) {
                           "corrupted\" kind). Install the port again, the game's files with it, and see that the card has room for them");
             else if (refused_service[0] && never_stood(refused_service)) {
                 // (a service of the kind the port can't stand in for was refused earlier: said with the end, as what may be behind it)
+                // ("nvdrv": a game of the older kind, which draws as a Switch game does. Its own words, since it is the commonest.)
+                const int older = refused_service[0] == 'n' && refused_service[1] == 'v' && refused_service[2] == 'd' && refused_service[3] == 'r' &&
+                                  refused_service[4] == 'v' && !refused_service[5];
                 const char *parts[3] = {"the game's SDK ended the program itself (an abort). Before it, the console refused the service \"", refused_service,
-                                        "\" to the game the homebrew menu was started over, and the port can't stand in for that one (graphics, display, "
-                                        "controllers, files): if this game needs it, start the homebrew menu over another game, one of the same kind"};
+                                        older ? "\" to the game the homebrew menu was started over. This game is of the older kind: its program draws "
+                                                "through that service, as a Switch game does, and nothing in a port can give it. It runs only when the "
+                                                "homebrew menu is started over a game of that same kind: the surest is this same game (hold R as it starts)"
+                                              : "\" to the game the homebrew menu was started over, and the port can't stand in for that one (graphics, "
+                                                "display, controllers, files): if this game needs it, start the homebrew menu over another game, one of the "
+                                                "same kind"};
                 u32 n = 0;
                 for (int k = 0; k < 3; k++)
                     for (const char *c = parts[k]; *c && n + 1 < sizeof why; c++) why[n++] = *c;

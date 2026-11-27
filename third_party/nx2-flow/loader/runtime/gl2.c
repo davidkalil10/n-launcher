@@ -737,6 +737,13 @@ static u32 mv_no_error(void *decoder) {
     return 0;
 }
 
+#ifdef NX2_GAME_MB
+static u32 (*real_get_save_data_size)(s64 *, s64 *, const void *);
+static u32 get_save_data_size_watched(s64 *out_data, s64 *out_journal, const void *uid) {
+    return nx2_get_save_data_size(out_data, out_journal, uid, real_get_save_data_size);
+}
+#endif
+
 void *nx2_override(const char *name) {
     static const struct {
         const char *name;
@@ -825,6 +832,15 @@ void *nx2_override(const char *name) {
         void *watch = nx2_nvn_watch(name);
         if (watch) return watch;
 #ifdef NX2_GAME_MB
+        if (!strcmp(name, "_ZN2nn2fs18CreateCacheStorageEill") && nx2_has_sd_save_fs())
+            return nx2_create_cache_storage;
+        if (!strcmp(name, "_ZN2nn2fs14ExtendSaveDataERKNS_7account3UidEll"))
+            return nx2_extend_save_data;
+        if (!strcmp(name, "_ZN2nn2fs15GetSaveDataSizeEPlS1_RKNS_7account3UidE")) {
+            real_get_save_data_size = (u32 (*)(s64 *, s64 *, const void *))nx2_symbol(name);
+            if (real_get_save_data_size) return get_save_data_size_watched;
+        }
+
         // A Switch 2 game's AudioOut is its SDK's own, as its audio renderer is: this console's SDK reaches both through aud:u
         // (its ListAudioOuts and its audio renderer manager open the same session of it), which the game the port is started
         // over may open. The silent output of audio2.c is for a Switch game, whose SDK asks for audout:u and is refused; it was

@@ -11,7 +11,8 @@ card and how the two programs talk.
 ## What it does when it starts
 
 1. Reads the NUP file's table of contents and takes the packages that make the game: the game's own and its updates, the later
-   over the earlier. Added content isn't taken yet.
+   over the earlier. Its add-on content, where the NUP file holds any, is given to the game as the console would give it:
+   each as an image of its own, made in memory as the game's is (`dlc=off` in the game's `game.cfg` leaves it out).
 2. Unpacks the modules of the newest program (LZ4 or ZBIC) into memory and has the console's loader service map them, code and
    data together as on the console. That service maps seven images for a program besides its own: when a game has more
    modules than that, or loads modules of its own as it runs, the ones that needn't be whole are made into one image first
@@ -44,6 +45,13 @@ python tools/build_loader.py          # out/nx2-game.nro
 
 Started with no file named, the loader runs the NUP file that `/nx2-flow/next.txt` names (one line, a path of the card:
 `sdmc:/nx2-flow/games/Some Game.nup`).
+
+## A NUP file in parts
+
+For a card that takes no file of 4 GB, a NUP file may be kept cut in parts (`Game.nup.001`, `Game.nup.aa`, a folder with
+`00`, `01`, ...). `runtime/nupparts.h` says which names are one game's parts, for this loader and for the menu alike; the loader
+is given the first part, or the folder of nameless parts, and reads them as the one file they were. The list of names is in
+`docs/layout.md`.
 
 ## License
 

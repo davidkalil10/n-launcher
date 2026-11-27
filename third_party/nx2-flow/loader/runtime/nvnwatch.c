@@ -10,6 +10,7 @@
 #include <switch.h>
 
 #include "nx2.h"
+#include "spinlock.h"
 void nx2_log(const char *fmt, ...);
 
 typedef u64 (*Fn4)(u64, u64, u64, u64);
@@ -82,7 +83,11 @@ static u64 called(u32 k, u64 a, u64 b, u64 c, u64 d) {
     __asm__("mrs %0, tpidrro_el0" : "=r"(me));
     if (nx2_nvnlock && __atomic_load_n(&owner, __ATOMIC_ACQUIRE) != me) {
         u64 none = 0;
-        while (!__atomic_compare_exchange_n(&owner, &none, me, 0, __ATOMIC_ACQUIRE, __ATOMIC_RELAXED)) none = 0, svcSleepThread(0);
+        u32 spins = 0;
+        while (!__atomic_compare_exchange_n(&owner, &none, me, 0, __ATOMIC_ACQUIRE, __ATOMIC_RELAXED)) {
+            none = 0;
+            nx2_spin_backoff(&spins);
+        }
     }
     if (nx2_nvnlock) depth++;
     const u64 r = watched[k].real(a, b, c, d);
@@ -145,6 +150,7 @@ static void *loader_watched(const char *name) {
 // (gl2.c asks, for a game whose graphics are its own SDK's)
 void *nx2_nvn_watch(const char *name) {
     if (strcmp(name, "nvnBootstrapLoader")) return NULL;
+    nogpu = 0;
     FILE *f = fopen(NX2_F("nogpu"), "rb");
     // (the file says which: "submit", "present", or anything else for both)
     if (f) {
@@ -152,6 +158,19 @@ void *nx2_nvn_watch(const char *name) {
         fread(what, 1, sizeof what - 1, f);
         fclose(f);
         nogpu = !strncmp(what, "submit", 6) ? 1 : !strncmp(what, "present", 7) ? 2 : 3;
+    }
+    // (<folder>/nvnnative: the game's driver as its SDK has it, with nothing of this in between. The watching stays the rule: the
+    // log's pictures a second, its longest wait between two and the memory for graphics in use come from it, and so does what
+    // a report of a game that ended says of its last call. For a game that the watching itself is in the way of; pull request
+    // 17, by ptichalouf, after nx2-relink's pull request 27 by cosminneamtiu, which made the native way the rule.)
+    if (!nogpu && !nx2_nvnlock) {
+        f = fopen(NX2_F("nvnnative"), "rb");
+        if (f) {
+            static int said;
+            fclose(f);
+            if (!said++) nx2_log("[nvn] <folder>/nvnnative: the game's driver is not watched, and the log has no line of how fast the game runs\n");
+            return NULL;
+        }
     }
     return (void *)loader_watched;
 }

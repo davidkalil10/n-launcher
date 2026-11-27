@@ -7,6 +7,44 @@
 #include <string.h>
 
 #include "nx2.h"
+#include "preselected.h"
+
+// Capture a valid host AccountUid before handing off to the game so svc.c can synthesize
+// LaunchParameterKind_PreselectedUser if am returns 0x480 (already consumed or donor title
+// started without StartupUserAccount). Always closes any temporary host acc:u0 session.
+static void nx2_preselected_capture(void) {
+    AccountUid uid = {0};
+    const char *how = NULL;
+    const AccountUid *env_uid = envGetUserIdStorage();
+    if (env_uid && accountUidIsValid(env_uid)) {
+        uid = *env_uid;
+        how = "envGetUserIdStorage";
+    } else {
+        const Result rc = accountInitialize(AccountServiceType_Application);
+        if (R_SUCCEEDED(rc)) {
+            if (R_SUCCEEDED(accountGetPreselectedUser(&uid)) && accountUidIsValid(&uid)) {
+                how = "accountGetPreselectedUser";
+            } else {
+                AccountUid users[ACC_USER_LIST_SIZE];
+                s32 got = 0;
+                if (R_SUCCEEDED(accountListAllUsers(users, ACC_USER_LIST_SIZE, &got)) && got > 0 && accountUidIsValid(&users[0])) {
+                    uid = users[0];
+                    how = "accountListAllUsers";
+                }
+            }
+            accountExit();
+        } else {
+            nx2_log("[applet] host accountInitialize failed (%x): no fallback preselected user\n", (u64)rc);
+        }
+    }
+    if (accountUidIsValid(&uid)) {
+        nx2_preselected_set(uid.uid[0], uid.uid[1]);
+        // (which user is not said: a log is what a report of a game that doesn't run is sent with, and the number is the user's own)
+        nx2_log("[applet] preselected user captured via %s\n", how);
+    } else {
+        nx2_log("[applet] no preselected user available on host\n");
+    }
+}
 
 // The host library's heap is the memory the homebrew loader hands over, nearly all a game may have. The game's own heap is taken off
 // its top before the C library has any of it: asked of malloc afterwards, a block of 2 GB or more was refused on a Switch with
@@ -45,7 +83,13 @@ void __libnx_initheap(void) {
     {
         // (128 MB, where it was 256: what the port takes of its own heap while a game runs is a few MB, and its table of a mods
         // folder's files; the other half is the game's now, which a game that maps memory as it runs was short of)
+#ifdef NX2_LOADER
+        // (In loader mode, large module images, module BSS, RomFS tables and unpacked files all live in nx2_big_at;
+        // 64 MB for mimalloc leaves ~25-35 MB spare for libounce/stdio while returning 64 MB vs upstream 128 MB to the kernel pool.)
+        u64 host = 64ull << 20;
+#else
         u64 host = 128ull << 20;
+#endif
         // (with the modules kept whole, whole.c, each one's image and bss are put together in the host's heap before the loader
         // service maps them: that much more is the host's. A game's seven are 190 MB, and with 256 MB in all the sixth had
         // none; log, 2026-11-25.)
@@ -54,22 +98,33 @@ void __libnx_initheap(void) {
 #ifdef NX2_LOADER
         // (The game loader doesn't know its game yet, nor how large the game's modules are: they are read from the NUP file
         // once the program is up, game.c. Room is kept for them, for the table of the game's files, and for the files that are
-        // unpacked as they are read: 384 MB, or what "room=<MB>" says where the program was started with that.)
+        // unpacked as they are read: 1024 MB, or what "room=<MB>" says where the program was started with that.)
+        // (It was 384 MB, and a game of five modules with a film of 162 MB kept packed had no place to unpack it: reports,
+        // nx2-flow's issues 3 and 8. What a game turns out not to need of the room is given back once the game is opened,
+        // main() below, so a large guess costs the game nothing.)
+        // (The menu writes the word in quotes, "room=768", and only a space was taken before it: the figure set in the menu
+        // was never read. nx2-flow's pull request 10, whose finding and change this is, as is the heap's test below.)
         {
-            u64 room = 384;
+            u64 room = 1024;
             const char *said = envGetArgv();
             for (const char *c = said; c && *c; c++)
-                if (c[0] == 'r' && c[1] == 'o' && c[2] == 'o' && c[3] == 'm' && c[4] == '=' && (c == said || c[-1] == ' ')) {
+                if (c[0] == 'r' && c[1] == 'o' && c[2] == 'o' && c[3] == 'm' && c[4] == '=' && (c == said || c[-1] == ' ' || c[-1] == '"')) {
                     u64 mb = 0;
-                    for (const char *d = c + 5; *d >= '0' && *d <= '9'; d++) mb = mb * 10 + (u64)(*d - '0');
-                    if (mb >= 128 && mb <= 2048) room = mb;
+                    const char *d = c + 5;
+                    for (; *d >= '0' && *d <= '9'; d++) mb = mb * 10 + (u64)(*d - '0');
+                    if ((!*d || *d == ' ' || *d == '"') && mb >= 128 && mb <= 4096) room = mb;
                 }
             host += room << 20;
             loader_room = room << 20;
         }
 #endif
         u64 base = 0, end = 0;
-        if (addr && size > 4 * host && R_SUCCEEDED(svcGetInfo(&base, InfoType_HeapRegionAddress, CUR_PROCESS_HANDLE, 0))) {
+#ifdef NX2_LOADER  // (the loader's part is large while its game is unknown: twice it is enough to go on, as the test below has it)
+        const u64 enough = 2 * host;
+#else
+        const u64 enough = 4 * host;
+#endif
+        if (addr && size > enough && R_SUCCEEDED(svcGetInfo(&base, InfoType_HeapRegionAddress, CUR_PROCESS_HANDLE, 0))) {
             for (end = base;;) {  // where the heap ends now
                 MemoryInfo mi;
                 u32 pi;
@@ -120,7 +175,7 @@ void __libnx_initheap(void) {
 #ifdef NX2_LOADER
     // (The game loader's room is not the allocator's to give: a game's modules and its unpacked files are large pieces, which
     // the library's allocator serves badly. The top of the host's part, as much as the room is, is game.c's own to give out.)
-    if (loader_room && size > loader_room + (96ull << 20)) {
+    if (loader_room && size >= loader_room + (64ull << 20)) {
         nx2_big_size = loader_room & ~0xFFFull;
         nx2_big_at = (u8 *)(((u64)addr + size - nx2_big_size) & ~0xFFFull);
         size = (u64)(nx2_big_at - addr);
@@ -201,6 +256,14 @@ int main(int argc, char **argv) {
             "Switch",
 #endif
             (u64)HOSVER_MAJOR(hos), (u64)HOSVER_MINOR(hos), (u64)HOSVER_MICRO(hos), (u64)appletGetAppletType(), total >> 20, used >> 20);
+#ifdef NX2_LOADER
+    // (The loader's games are Switch 2 games. Started over a Switch game, the program has that game's share of the memory, some
+    // 6900 MB where a Switch 2 game's is some 9100: a game that takes all it is told of then has nothing left to map and ends with
+    // a fault a little later, which says nothing of why. nx2-flow's issue 12. Said here, at the top, where a report is read first.)
+    if (total < (8000ull << 20))
+        nx2_log("[nx2] THE HOMEBREW MENU WAS STARTED OVER A TITLE THAT HAS %u MB OF MEMORY, as a Switch game has: a Switch 2 game's has some 9100 MB, "
+                "and this game may end for lack of the rest. Start the homebrew menu over a Switch 2 game\n", total >> 20);
+#endif
 
     // the game's heap: half of what's free, 1 GB at most, in 2 MB steps as the kernel gives it
     // (asked of malloc, not worked out from the kernel's count of free memory: the host library has taken all of it for its own heap
@@ -239,6 +302,18 @@ int main(int argc, char **argv) {
 #endif
             u64 most = (u64)NX2_GAME_MB << 20;
             if (heap_given + apart < most + slack) most = heap_given + apart > slack ? (heap_given + apart - slack) & ~0x1FFFFFull : 0;
+#ifdef NX2_LOADER
+            // (A game that declares 1 GB+ of VirtualAddressMemory and has only fixed top-level heaps besides Reserved over-allocates
+            // SetHeapSize when told the full 8992 MB while the host takes ~450-550 MB from the kernel pool, starving MapPhysicalMemory
+            // (nx2-relink's issue 28: 7149 MB fixed + 1500 MB VAM). Trim `most` to max(fixed + 128 MB + apart,
+            // heap_given - slack) so SetHeapSize keeps >= 128 MB headroom and returns the excess physical memory to MapPhysicalMemory.)
+            if (apart >= (1024ull << 20) && nx2_game_fixed_mb && !nx2_game_auto_heaps && heap_given < most) {
+                const u64 min_most = (((u64)nx2_game_fixed_mb + 128) << 20) + apart;
+                const u64 want_most = heap_given > slack ? heap_given - slack : 0;
+                const u64 fit = ((min_most > want_most ? min_most : want_most) + 0x1FFFFFull) & ~0x1FFFFFull;
+                if (fit < most) most = fit;
+            }
+#endif
             {  // (<folder>/told: the game is told of this many MB, whatever there is. A try, for a game that sizes itself by it.)
                 FILE *t = fopen(NX2_F("told"), "rb");
                 if (t) {
@@ -267,6 +342,11 @@ int main(int argc, char **argv) {
                             there < made_for ? ". THAT IS LESS: the game may end for lack of it. Started over a title that has as much, it would have it" : "");
                 }
             }
+#endif
+#ifdef NX2_GAME_NVDRV
+            // (a game of the older kind, tools/build.py: said at the start, where a report's reader looks first)
+            nx2_log("[nx2] this game is of the older kind: its program draws through the service \"nvdrv\", as a Switch game does. It runs only "
+                    "when the homebrew menu was started over a game of that same kind (the surest: this same game)\n");
 #endif
 #ifdef NX2_GAME_SYSRES_KB
             // The "system resource" of a program: memory the kernel keeps for the program's own bookkeeping, set by its description
@@ -475,6 +555,7 @@ int main(int argc, char **argv) {
         heap_back();
         return 1;
     }
+    nx2_preselected_capture();
     // The system gives a program one applet session (appletOE), and the host library opened it at start; the SDK asks for its own
     // (nn::oe::Initialize) and was refused: result 3e880, then Break (log, 2026-11-22). So the host's is closed first, as one
     // homebrew program does before the next is loaded into the same process.

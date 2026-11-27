@@ -5,12 +5,15 @@
 // copied to <folder>/romfs.bin: its reads are served from that file. (An image over 4 GB doesn't fit a file of a FAT32 card's:
 // it can be in parts instead, <name>.romfs.00, .01, ..., all of one size but the last.)
 // On a game's thread: system calls and the host library's service calls only (they use the thread's message buffer, nothing else).
+#include <stddef.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <switch.h>
 
 #include "nx2.h"
+#include "fs_raw.h"
+#include "spinlock.h"
 
 #ifndef NX2_NAME
 #define NX2_NAME "game"
@@ -26,7 +29,7 @@
 // <folder>/aoc<index>.romfs, which tools/nsp.py --aoc writes. The SDK asks for those by "data id", the last digits of which
 // are the add-on's index (fsp-srv 202), after asking the add-on content service which there are (nx2_aoc_ipc).
 #define ROM_PARTS 16
-#define ROM_IMAGES 41
+#define ROM_IMAGES 65
 typedef struct {
     FsFile part[ROM_PARTS];
     s64 size, part_size;  // the whole image's size, and one part's (the whole, for an image in one file)
@@ -35,10 +38,12 @@ typedef struct {
 } Image;
 static Image images[ROM_IMAGES];
 static u32 image_count = 1, rom_logged;
+static FsFileSystem *rom_sd;
 
 static void image_open(Image *im, char *path) {
     FsFileSystem *sd = fsdevGetDeviceFileSystem("sdmc");
     if (!sd) return;
+    rom_sd = sd;
     if (!fsFsOpenFile(sd, path, FsOpenMode_Read, &im->part[0]) && R_SUCCEEDED(fsFileGetSize(&im->part[0], &im->size))) {
         im->ok = 1, im->parts = 1, im->part_size = im->size;
         return;
@@ -89,6 +94,12 @@ static void mods_start(void);
 void nx2_rom_open(void) {
 #ifdef NX2_LOADER
     images[0].ok = 1, images[0].size = (s64)nx2_game_rom_size(), images[0].parts = 0;
+    const u32 aocs = nx2_game_aoc_count();
+    for (u32 k = 0; k < aocs && image_count < ROM_IMAGES; k++) {
+        Image *im = &images[image_count++];
+        im->ok = 1, im->size = (s64)nx2_game_aoc_size(k), im->parts = 0, im->index = nx2_game_aoc_index(k);
+        nx2_log("[rom] add-on content %u from the NUP file: %u KB\n", (u64)im->index, (u64)im->size >> 10);
+    }
     mods_start();
     return;
 #endif
@@ -98,7 +109,7 @@ void nx2_rom_open(void) {
     else nx2_log("[rom] sdmc:%s isn't there: the game gets the files of the program this was started over\n", path);
     image_whole(&images[0]);
     mods_open(&images[0]);
-    for (u32 index = 1; index < ROM_IMAGES && image_count < ROM_IMAGES; index++) {
+    for (u32 index = 1; index < 41 && image_count < ROM_IMAGES; index++) {
         static char aoc[FS_MAX_PATH];
         const char *head = NX2_HOME "/aoc";
         u32 n = 0;
@@ -130,16 +141,19 @@ static u32 rom_read(Image *im, u64 offset, u8 *to, u64 size, u64 *got) {
         // in, the thread reading and the thread mapping both mid-way; 2026-11-24). So the read fills memory of the port's, one
         // thread at a time, and what arrived is copied into the game's: the game's memory is never locked for long.
         static u8 bounce[4 << 20] __attribute__((aligned(0x1000)));
-        static u32 bounce_lock;
+        static u32 bounce_lock, rom_read_lock;
         u32 rc = 0;
         if (nx2_bounce) {
             if (take > sizeof bounce) take = sizeof bounce;
-            while (__atomic_exchange_n(&bounce_lock, 1, __ATOMIC_ACQUIRE)) svcSleepThread(0);
-            rc = fsFileRead(&im->part[part], (s64)in, bounce, take, FsReadOption_None, &n);
+            nx2_fs_lock(&bounce_lock);
+            rc = nx2_fs_file_read(&im->part[part], (s64)in, bounce, take, &n);
             for (u64 k = 0; k < n; k++) to[k] = bounce[k];
-            __atomic_store_n(&bounce_lock, 0, __ATOMIC_RELEASE);
+            nx2_fs_unlock(&bounce_lock);
         } else {
-            rc = fsFileRead(&im->part[part], (s64)in, to, take, FsReadOption_None, &n);
+            if (take > (4u << 20)) take = 4u << 20;
+            nx2_fs_lock(&rom_read_lock);
+            rc = nx2_fs_file_read(&im->part[part], (s64)in, to, take, &n);
+            nx2_fs_unlock(&rom_read_lock);
         }
         *got += n;
         if (rc) return rc;
@@ -347,7 +361,7 @@ static u32 mods_file_read(u32 which, u64 offset, u8 *to, u64 size, u64 *got) {
     static char path[FS_MAX_PATH];
     u32 rc = 0;
     *got = 0;
-    while (__atomic_exchange_n(&mods.lock, 1, __ATOMIC_ACQUIRE)) svcSleepThread(0);
+    nx2_fs_lock(&mods.lock);
     int slot = -1, oldest = -1;
     for (int k = 0; k < MODS_OPEN; k++)
         if (mods.kept[k].open && mods.kept[k].which == which) slot = k;
@@ -360,13 +374,12 @@ static u32 mods_file_read(u32 which, u64 offset, u8 *to, u64 size, u64 *got) {
         }
     if (slot < 0) {
         slot = oldest;
-        if (mods.kept[slot].open) fsFileClose(&mods.kept[slot].file), mods.kept[slot].open = 0;
+        if (mods.kept[slot].open) nx2_fs_file_close(&mods.kept[slot].file), mods.kept[slot].open = 0;
         u32 n = 0;
         for (const char *p = home; *p; p++) path[n++] = *p;
         for (const char *p = mods.paths + mods.files[which].path; *p && n < sizeof path - 1; p++) path[n++] = *p;
         path[n] = 0;
-        FsFileSystem *sd = fsdevGetDeviceFileSystem("sdmc");
-        rc = sd ? fsFsOpenFile(sd, path, FsOpenMode_Read, &mods.kept[slot].file) : 0x2EE202;
+        rc = rom_sd ? nx2_fs_open_file(rom_sd, path, FsOpenMode_Read, &mods.kept[slot].file) : 0x2EE202u;
         if (!rc) mods.kept[slot].open = 1, mods.kept[slot].which = which;
     }
     if (!rc && !mods.files[which].read) {
@@ -376,10 +389,10 @@ static u32 mods_file_read(u32 which, u64 offset, u8 *to, u64 size, u64 *got) {
     if (!rc) {
         mods.kept[slot].age = ++mods.clock;
         u64 n = 0;
-        rc = fsFileRead(&mods.kept[slot].file, (s64)offset, to, size, FsReadOption_None, &n);
+        rc = nx2_fs_file_read(&mods.kept[slot].file, (s64)offset, to, size, &n);
         *got = n;
     }
-    __atomic_store_n(&mods.lock, 0, __ATOMIC_RELEASE);
+    nx2_fs_unlock(&mods.lock);
     return rc;
 }
 // size bytes of the storage as the game is given it, at offset (in range): the image's own, but for its table of files, which is
@@ -427,7 +440,7 @@ static u32 mods_read(Image *im, u64 offset, u8 *to, u64 size, u64 *got) {
 }
 
 static u32 buf_mode;  // (how the last receive buffer looked at was to be mapped: 0 as usual, 1 non-secure allowed, 3 non-device)
-static const u8 *data_of(const u8 *m, u64 *buf, u64 *buf_size) {
+static const u8 *data_bounds(const u8 *m, u64 *buf, u64 *buf_size, const u8 **end) {
     const u32 w0 = rd32(m), w1 = rd32(m + 4);
     u32 o = 8;
     if (w1 >> 31) {
@@ -443,7 +456,31 @@ static const u8 *data_of(const u8 *m, u64 *buf, u64 *buf_size) {
         buf_mode = hi & 3;
     }
     o += ((w0 >> 24 & 15) + (w0 >> 28 & 15)) * 12;
+    if (end) {
+        const u32 limit = o + (w1 & 0x3FFu) * 4;
+        *end = m + (limit < 0x100u ? limit : 0x100u);
+    }
     return m + ((o + 15) & ~15u);
+}
+static const u8 *data_of(const u8 *m, u64 *buf, u64 *buf_size) { return data_bounds(m, buf, buf_size, NULL); }
+
+// Program index of the loaded title (low byte of its 16-hex-digit title id in loader builds, or 0 otherwise).
+static u32 rom_program_index(void) {
+#ifdef NX2_LOADER
+    u32 idx = 0;
+    for (int k = 0; k < 16; k++) {
+        const char c = nx2_game_id[k];
+        u32 v;
+        if (c >= '0' && c <= '9') v = (u32)(c - '0');
+        else if (c >= 'a' && c <= 'f') v = (u32)(c - 'a' + 10);
+        else if (c >= 'A' && c <= 'F') v = (u32)(c - 'A' + 10);
+        else return 0;
+        if (k >= 14) idx = (idx << 4) | v;
+    }
+    return nx2_game_id[16] == 0 ? idx : 0;
+#else
+    return 0;
+#endif
 }
 
 // an answer in a domain: the domain's header, the result, the data, the object handed over (0: none)
@@ -465,7 +502,8 @@ int nx2_rom_ipc(u8 *m) {
     const u32 type = rd32(m) & 0xFFFF;
     if (!images[0].ok || (type != 4 && type != 6)) return 0;  // (a request, with or without a context: not a control message)
     u64 buf, buf_size;
-    const u8 *d = data_of(m, &buf, &buf_size);
+    const u8 *end = NULL;
+    const u8 *d = data_bounds(m, &buf, &buf_size, &end);
     if (d + 32 > m + 0x100) return 0;
     const u32 kind = d[0], object = rd32(d + 4);
     const int has_cmd = rd32(d + 16) == 0x49434653;  // "SFCI"
@@ -479,14 +517,45 @@ int nx2_rom_ipc(u8 *m) {
         }
         if (cmd == 202 && image_count > 1 && d + 48 <= m + 0x100) {  // OpenDataStorageByDataId(storage, data id)
             const u64 id = rd64(d + 40);
-            if (id >> 12 == 0x0100000000000ull) return 0;  // (the system's own data: its fonts and the like)
+            if (id >> 12 == 0x0100000000000ull || id >> 12 == 0x0400000000000ull) return 0;  // (the system's own data: its fonts and the like)
             for (u32 k = 1; k < image_count; k++)
                 if (images[k].index == (id & 0xFFF)) {
-                    nx2_log("[rom] the SDK asks for data %x: add-on content %u, given the file on the card\n", id, (u64)images[k].index);
+                    nx2_log("[rom] the SDK asks for data %x: add-on content %u, given %s\n", id, (u64)images[k].index,
+#ifdef NX2_LOADER
+                            "from the NUP file");
+#else
+                            "the file on the card");
+#endif
                     answer(m, 0, NULL, 0, ROM_OBJECT + k);
                     return 1;
                 }
-            nx2_log("[rom] the SDK asks for data %x: no add-on content of that index is on the card\n", id);
+            nx2_log("[rom] the SDK asks for data %x: no add-on content of that index is %s\n", id,
+#ifdef NX2_LOADER
+                    "in the NUP file");
+#else
+                    "on the card");
+#endif
+        }
+        if (cmd == 205) {  // OpenDataStorageWithProgramIndex(u8 program_index) -> IStorage
+            const u32 domain_size = rd32(d) >> 16;
+            if (d + 33 > end || domain_size < 17) return 0;
+            const u8 program_index = d[32];
+            const u32 cur = rom_program_index();
+            if (images[0].size > 0 && (program_index == cur || program_index == 0)) {
+                nx2_log("[rom] the SDK asks for program %u's data storage (command 205, title program %u): given %s\n",
+                        (u64)program_index, (u64)cur,
+#ifdef NX2_LOADER
+                        "from the NUP file");
+#else
+                        "the file on the card");
+#endif
+                answer(m, 0, NULL, 0, ROM_OBJECT);
+                return 1;
+            }
+            nx2_log("[rom] the SDK asks for program %u's data storage (command 205, title program %u): not found (result 7d402)\n",
+                    (u64)program_index, (u64)cur);
+            answer(m, 0x7D402, NULL, 0, 0);
+            return 1;
         }
         return 0;
     }
@@ -499,11 +568,12 @@ int nx2_rom_ipc(u8 *m) {
         const u64 offset = rd64(d + 32), size = rd64(d + 40);
         u32 rc = 0;
         u64 got = 0;
-        const int laid = mods.on && im == &images[0];  // (<folder>/mods: the game's own image, with files of the user's over it)
+        const u32 which = (u32)(im - images);
+        const int laid = mods.on && !which;  // (<folder>/mods: the game's own image, with files of the user's over it)
         const u64 whole = laid ? mods.size : (u64)im->size;
         if (size > buf_size || offset > whole || size > whole - offset) rc = 0x2EE202;  // out of range (fs)
 #ifdef NX2_LOADER
-        else if (size && laid) rc = nx2_game_rom_read(offset, (u8 *)buf, size, &got);
+        else if (size) rc = which ? nx2_game_aoc_read(which - 1, offset, (u8 *)buf, size, &got) : nx2_game_rom_read(offset, (u8 *)buf, size, &got);
 #endif
         else if (size) rc = laid ? mods_read(im, offset, (u8 *)buf, size, &got) : rom_read(im, offset, (u8 *)buf, size, &got);
         if (rc || got != size || rom_logged < 12 || nx2_ipclog) {  // (<folder>/ipclog: every read)
@@ -560,7 +630,13 @@ int nx2_aoc_ipc(u8 *m) {
         // reaches it: they have no data to give back. nx2-relink's issue 25, whose finding and change this is.)
         return 0;
     }
-    nx2_log("[aoc] command %u: answered from the card (%u add-on content there)\n", (u64)cmd, (u64)count);
+    nx2_log("[aoc] command %u: answered from %s (%u add-on content there)\n", (u64)cmd,
+#ifdef NX2_LOADER
+            "the NUP file",
+#else
+            "the card",
+#endif
+            (u64)count);
     if (domain) {
         answer(m, 0, raw, raw_size, 0);
         return 1;
@@ -601,23 +677,215 @@ static u32 save_logged;
 // The objects the host's session hands back are the host's too: each is given a number of the port's before the game sees it.
 #define LENT_OBJECT 0x4E585300u
 #define LENT 96
+#define CROSS_ROOTS 8
+static struct {
+    u32 refs;
+    char path[64];
+} cross_roots[CROSS_ROOTS];
 static struct {
     u32 real;  // the object in the host's session (0: a free place)
-    u8 fs;     // the file system itself: its paths get the folder, and closing it closes nothing of the host's
+    u32 fs;    // 0: file or directory; 1: save filesystem; 2 and up: cache filesystem by index
+    u8 ro;     // read-only mount (OpenReadOnlySaveDataFileSystem): mutating commands are refused
+    u8 root;   // 0: SAVE_DIR; 1..CROSS_ROOTS: cross_roots[root - 1].path
 } lent[LENT];
 static u32 lent_lock;
-static Service *host_fs;  // the host's file system of the card, when it is an object of a domain (else null: the SDK's session is asked)
+static FsFileSystem *host_fs;  // the host's card file system, when its session is a domain
+static u64 host_title_id;      // the title id of the host process this program was started over
 
-static u32 lend(u32 real, int fs) {
-    while (__atomic_exchange_n(&lent_lock, 1, __ATOMIC_ACQUIRE)) svcSleepThread(0);
+static int str_eq(const char *a, const char *b) {
+    while (*a && *a == *b) a++, b++;
+    return *a == *b;
+}
+
+static u32 lend_fs(u32 real, u32 fs, int ro, const char *cross_root) {
+    nx2_spin_lock(&lent_lock);
+    u8 root_id = 0;
+    if (cross_root) {
+        int found = -1;
+        for (int r = 0; r < CROSS_ROOTS; r++)
+            if (cross_roots[r].refs && str_eq(cross_roots[r].path, cross_root)) {
+                found = r;
+                break;
+            }
+        for (int r = 0; r < CROSS_ROOTS && found < 0; r++)
+            if (!cross_roots[r].refs) {
+                found = r;
+                u32 n = 0;
+                for (; cross_root[n] && n + 1 < sizeof cross_roots[r].path; n++) cross_roots[r].path[n] = cross_root[n];
+                cross_roots[r].path[n] = 0;
+            }
+        if (found < 0) {
+            __atomic_store_n(&lent_lock, 0, __ATOMIC_RELEASE);
+            return 0;
+        }
+        root_id = (u8)(found + 1);
+    }
     u32 id = 0;
     for (u32 k = 0; k < LENT && !id; k++)
-        if (!lent[k].real) lent[k].real = real, lent[k].fs = (u8)fs, id = LENT_OBJECT + k;
+        if (!lent[k].real) {
+            lent[k].real = real, lent[k].fs = fs, lent[k].ro = (u8)ro, lent[k].root = root_id;
+            if (root_id) cross_roots[root_id - 1].refs++;
+            id = LENT_OBJECT + k;
+        }
     __atomic_store_n(&lent_lock, 0, __ATOMIC_RELEASE);
     return id;
 }
 
+static u32 lend(u32 real, u32 fs) { return lend_fs(real, fs, 0, NULL); }
+
+static void unlend(u32 k) {
+    nx2_spin_lock(&lent_lock);
+    if (lent[k].root && lent[k].root <= CROSS_ROOTS && cross_roots[lent[k].root - 1].refs) cross_roots[lent[k].root - 1].refs--;
+    lent[k].real = 0, lent[k].fs = 0, lent[k].ro = 0, lent[k].root = 0;
+    __atomic_store_n(&lent_lock, 0, __ATOMIC_RELEASE);
+}
+
+// Per-game SD cache folder: <SAVE_UP>/cache/<xxxx> (no libc calls so safe on game threads).
+static size_t cache_root_path(char path[FS_MAX_PATH]) {
+    const char *up = SAVE_UP;
+    const char *sub = "/cache";
+    size_t n = 0;
+    for (const char *p = up; *p && n + 1 < FS_MAX_PATH; p++) path[n++] = *p;
+    for (const char *p = sub; *p && n + 1 < FS_MAX_PATH; p++) path[n++] = *p;
+    path[n] = 0;
+    return n;
+}
+
+static int cache_folder(char path[FS_MAX_PATH], u16 index) {
+    static const char hex[] = "0123456789abcdef";
+    size_t at = cache_root_path(path);
+    if (at + 5 >= FS_MAX_PATH) return 0;
+    path[at++] = '/';
+    for (unsigned i = 0; i < 4; i++) path[at + i] = hex[(index >> (12 - 4 * i)) & 15];
+    path[at + 4] = 0;
+    return 1;
+}
+
+static u32 cache_dir_lock;
+static u32 ensure_cache_directory(u16 index) {
+    if (!host_fs) return 0x2EE202;
+    char root[FS_MAX_PATH] = {0};
+    char path[FS_MAX_PATH] = {0};
+    cache_root_path(root);
+    if (!cache_folder(path, index)) return 0x2EE202;
+    nx2_fs_lock(&cache_dir_lock);
+    FsDirEntryType type;
+    if (R_SUCCEEDED(nx2_fs_get_entry_type(host_fs, path, &type))) {
+        nx2_fs_unlock(&cache_dir_lock);
+        return type == FsDirEntryType_Dir ? 0 : 0x402;
+    }
+    u32 rc = nx2_fs_create_directory(host_fs, root);
+    if (rc && rc != 0x402) {
+        nx2_fs_unlock(&cache_dir_lock);
+        return rc;
+    }
+    rc = nx2_fs_create_directory(host_fs, path);
+    if (rc == 0x402 && R_SUCCEEDED(nx2_fs_get_entry_type(host_fs, path, &type)) && type == FsDirEntryType_Dir)
+        rc = 0;
+    nx2_fs_unlock(&cache_dir_lock);
+    nx2_log("[save] creating cache index %u in %s: result %x\n", (u64)index, path, (u64)rc);
+    return rc;
+}
+
+u32 nx2_create_cache_storage(s32 index, s64 data_size, s64 journal_size) {
+    if (!host_fs || index < 0 || index > UINT16_MAX || data_size < 0 || journal_size < 0) return 0x2EE202;
+    return ensure_cache_directory((u16)index);
+}
+
+int nx2_has_sd_save_fs(void) { return host_fs != NULL; }
+
+static s64 extended_save_data_size, extended_save_journal_size;
+static int save_extended;
+
+u32 nx2_extend_save_data(const void *uid, s64 data_size, s64 journal_size) {
+    if (!uid || data_size < 0 || journal_size < 0) return 0x2EE202;
+    __atomic_store_n(&extended_save_data_size, data_size, __ATOMIC_RELAXED);
+    __atomic_store_n(&extended_save_journal_size, journal_size, __ATOMIC_RELAXED);
+    __atomic_store_n(&save_extended, 1, __ATOMIC_RELEASE);
+    nx2_log("[save] ExtendSaveData(data=%u MB, journal=%u MB): answered here (SD-backed save)\n",
+            (u64)data_size >> 20, (u64)journal_size >> 20);
+    return 0;
+}
+
+u32 nx2_get_save_data_size(s64 *out_data, s64 *out_journal, const void *uid, u32 (*real)(s64 *, s64 *, const void *)) {
+    if (!uid) return 0x2EE202;
+    if (__atomic_load_n(&save_extended, __ATOMIC_ACQUIRE)) {
+        if (out_data) *out_data = __atomic_load_n(&extended_save_data_size, __ATOMIC_RELAXED);
+        if (out_journal) *out_journal = __atomic_load_n(&extended_save_journal_size, __ATOMIC_RELAXED);
+        return 0;
+    }
+#ifdef NX2_LOADER
+    if (nx2_game_save_data_size > 0 || nx2_game_save_journal_size > 0) {
+        if (out_data) *out_data = nx2_game_save_data_size;
+        if (out_journal) *out_journal = nx2_game_save_journal_size;
+        return 0;
+    }
+#endif
+    return real ? real(out_data, out_journal, uid) : 0x2EE202;
+}
+
+static u64 current_game_title_id(void) {
+#ifdef NX2_LOADER
+    return nx2_game_title_id;
+#else
+    return 0;
+#endif
+}
+
+// Non-zero when application_id names a different title than the running game (and the host title it was started over).
+static int is_other_title(u64 app_id) {
+    if (!app_id) return 0;  // FS_SAVEDATA_CURRENT_APPLICATIONID
+    const u64 game = current_game_title_id();
+    if (game && (app_id == game || app_id == (game & ~0xFFFull))) return 0;
+    if (game && (game >> 56) == 0x04 && (game & 0xFFFull) != 0 &&
+        app_id == ((game & ~0xFF00000000000FFFull) | 0x0100000000000000ull)) return 0;
+    if (host_title_id && (app_id == host_title_id || app_id == (host_title_id & ~0xFFFull))) return 0;
+    return 1;
+}
+
+// Formats "/nx2-flow/<16-hex-app_id>/save" into a 0x301-byte path buffer without using the C library (game-thread safe).
+static void format_other_save_dir(u64 app_id, char *out) {
+    static const char head[] = "/" NX2_TOOL "/";
+    static const char tail[] = "/save";
+    static const char hex[] = "0123456789abcdef";
+    for (u32 k = 0; k < 0x301; k++) out[k] = 0;
+    u32 n = 0;
+    for (u32 k = 0; head[k]; k++) out[n++] = head[k];
+    for (int k = 0; k < 16; k++) out[n++] = hex[(app_id >> (60 - 4 * k)) & 15];
+    for (u32 k = 0; tail[k]; k++) out[n++] = tail[k];
+    out[n] = 0;
+}
+
+// Queries whether `path` (0x301-byte buffer) is an existing directory on the SD card via raw CMIF GetEntryType (cmd 7) on
+// host_fs, using the caller's IPC buffer `m` directly (safe on any game thread: no C library, no host TLS).
+static int host_dir_exists(u8 *m, const char *path) {
+    if (!host_fs) return 0;
+    for (u32 k = 0; k < 0x100; k++) m[k] = 0;
+    wr32(m, 4u | (1u << 16));
+    wr32(m + 4, 12u);
+    const u64 p = (u64)path;
+    wr32(m + 8, (0x301u << 16) | (u32)((p >> 32) & 15) << 12 | (u32)((p >> 36) & 63) << 6);
+    wr32(m + 12, (u32)p);
+    m[0x10] = 1, m[0x12] = 0x10;
+    wr32(m + 0x14, host_fs->s.object_id);
+    wr32(m + 0x20, 0x49434653u);  // "SFCI"
+    wr32(m + 0x28, 7u);           // IFileSystem::GetEntryType
+    if (svcSendSyncRequest(host_fs->s.session)) return 0;
+    u64 buf, buf_size;
+    const u8 *d = data_of(m, &buf, &buf_size);
+    if (d + 36 > m + 0x100 || rd32(d + 16) != 0x4F434653u || rd32(d + 24) != 0) return 0;
+    return rd32(d + 32) == 0;  // FsDirEntryType_Dir
+}
+
+// Read-only IFileSystem commands allowed on a handle opened via OpenReadOnlySaveDataFileSystem (cmd 53).
+static int is_ro_fs_cmd(u32 cmd, const u8 *d, const u8 *end) {
+    if (cmd == 7 || cmd == 9 || cmd == 11 || cmd == 12 || cmd == 14 || cmd == 16) return 1;
+    if (cmd == 8 && d + 36 <= end) return (rd32(d + 32) & 6u) == 0;  // OpenFile: disallow Write (2) / Append (4)
+    return 0;
+}
+
 void nx2_save_open(void) {
+    svcGetInfo(&host_title_id, InfoType_ProgramId, CUR_PROCESS_HANDLE, 0);
     FsFileSystem *sd = fsdevGetDeviceFileSystem("sdmc");
     if (!sd) return;
     static char up[FS_MAX_PATH], dir[FS_MAX_PATH];
@@ -626,7 +894,7 @@ void nx2_save_open(void) {
     const u32 rc = fsFsCreateDirectory(sd, dir);
     nx2_log("[save] the game's saved data is kept in sdmc:%s (made: %x)\n", dir, (u64)rc);
 #ifdef __SWITCH2__
-    if (sd->s.object_id) host_fs = &sd->s;
+    if (sd->s.object_id) host_fs = sd;
     nx2_log("[save] the host's file system of the card: session %x, object %x: %s\n", (u64)sd->s.session, (u64)sd->s.object_id,
             host_fs ? "the game's saved data goes through it" : "not an object of a domain, so the SDK's own session is asked for the card");
 #endif
@@ -644,28 +912,44 @@ static u8 *pointers_of(u8 *m, u32 *count) {
     return m + o;
 }
 
+// CMIF input size for a domain request with no buffers, handles, or input objects.
+static u32 inline_request_size(const u8 *m) {
+    const u32 header = rd32(m + 4), bytes = (header & 0x3ff) * 4;
+    if (rd32(m) >> 16 || (header & 0x80003c00u) || bytes < 40 || bytes > 0x100 - 8) return 0;
+    const u32 domain = rd32(m + 0x10), size = domain >> 16;
+    return (domain & 0xffff) == 1 && size >= 16 && size <= bytes - 24 ? size : 0;
+}
+
 // the paths of a request to the save data's file system, put in its folder (paths: room for two). 0: a request that isn't understood
-static int in_folder(u8 *m, u32 cmd, int plain, char (*paths)[0x301]) {
+static int in_folder(u8 *m, u32 cmd, int plain, const char *folder, int ro, const u8 *d, const u8 *end, char (*paths)[0x301]) {
     u32 count;
     u8 *x = pointers_of(m, &count);
+    if (ro && (!plain || !is_ro_fs_cmd(cmd, d, end))) {
+        nx2_log("[save] a write command (%d) on a read-only save file system: refused\n", (s64)(s32)cmd);
+        return 0;
+    }
     int ok = plain && cmd <= 15 && count <= 2 && (count > 0 || cmd == 10);  // (10: Commit, the only one without a path)
+    if (cmd == 16) ok = plain && inline_request_size(m) == 16;  // GetFileSystemAttribute (HOS 15.0+, 0 paths)
     for (u32 k = 0; ok && k < count; k++) {
         const u32 w = rd32(x + k * 8);
-        const char *from = (const char *)(rd32(x + k * 8 + 4) | (u64)(w >> 12 & 15) << 32 | (u64)(w >> 6 & 7) << 36);
+        const char *from = (const char *)(rd32(x + k * 8 + 4) | (u64)(w >> 12 & 15) << 32 | (u64)(w >> 6 & 0x3F) << 36);
         const u32 size = w >> 16;
         char *to = paths[k];
         u32 n = 0;
-        for (const char *p = SAVE_DIR; *p; p++) to[n++] = *p;
+        for (const char *p = folder; ok && *p; p++) {
+            if (n >= 0x300) ok = 0;
+            else to[n++] = *p;
+        }
         if (!from || !size || from[0] != '/') ok = 0;
         for (u32 i = 0; ok && i < size && from[i]; i++) {
-            if (from[i] == '.' && from[i + 1] == '.') ok = 0;  // (nothing above the folder)
+            if (from[i] == '.' && i + 1 < size && from[i + 1] == '.') ok = 0;  // (nothing above the folder)
             if (n >= 0x300) ok = 0;
             else to[n++] = from[i];
         }
         to[n] = 0;
         if (!ok) break;
         if (save_logged < 24) save_logged++, nx2_log("[save] command %u, %s\n", (u64)cmd, to);
-        wr32(x + k * 8, (w & 0xE3F) | (u32)((u64)to >> 32 & 15) << 12 | (u32)((u64)to >> 36 & 7) << 6 | 0x301u << 16);
+        wr32(x + k * 8, (w & 0x3Fu) | (u32)((u64)to >> 32 & 15) << 12 | (u32)((u64)to >> 36 & 0x3F) << 6 | 0x301u << 16);
         wr32(x + k * 8 + 4, (u32)(u64)to);
     }
     if (!ok) nx2_log("[save] a request to the save data's file system that isn't understood (command %d, %u paths): refused\n", (s64)(s32)cmd, (u64)count);
@@ -689,18 +973,31 @@ int nx2_save_before(u8 *m, char (*paths)[0x301], u32 *handle) {
         const u32 k = object - LENT_OBJECT;
         if (lent[k].fs) {
             if (kind == 2) {  // the file system closed: the host's stays open
-                lent[k].real = 0;
+                unlend(k);
                 answer(m, 0, NULL, 0, 0);
                 return 3;
             }
-            if (!in_folder(m, cmd, kind == 1 && has_cmd, paths)) {
+            char cache[FS_MAX_PATH];
+            const char *folder;
+            if (lent[k].fs > 1) {
+                if (!cache_folder(cache, (u16)(lent[k].fs - 2))) {
+                    answer(m, 0x2EE202, NULL, 0, 0);
+                    return 3;
+                }
+                folder = cache;
+            } else if (lent[k].root && lent[k].root <= CROSS_ROOTS) {
+                folder = cross_roots[lent[k].root - 1].path;
+            } else {
+                folder = SAVE_DIR;
+            }
+            if (!in_folder(m, cmd, kind == 1 && has_cmd, folder, lent[k].ro, d, m + 0x100, paths)) {
                 answer(m, 0x2EE202, NULL, 0, 0);
                 return 3;
             }
         }
         wr32(d + 4, lent[k].real);
-        if (kind == 2) lent[k].real = 0;  // (a file or a folder closed: the host's object goes with this message)
-        *handle = host_fs->session;
+        if (kind == 2) unlend(k);  // (a file or a folder closed: the host's object goes with this message)
+        *handle = host_fs->s.session;
         return 5;
     }
     int mine = -1;
@@ -708,20 +1005,63 @@ int nx2_save_before(u8 *m, char (*paths)[0x301], u32 *handle) {
         if (object && save_objects[k] == object) mine = k;
     if (mine < 0) {
         // (How large the game's "cache storage" is, command 34: a second kind of saved data, which a game mounts like the first
-        // (command 51, below: it is given the same folder) and then asks the size of. The system has none for the title a port
+        // (command 51, below) and then asks the size of. The system has none for the title a port
         // is started over, says "not found" (7d402), and the game's SDK ends the program on that; report, 2026-11-25. Answered
         // here: there is as much as a game could ask, 2 GB of data and as much again of journal.)
         if (kind == 1 && has_cmd && cmd == 34) {
             u8 sizes[16] = {0};
             sizes[3] = 0x80, sizes[11] = 0x80;
-            nx2_log("[save] the SDK asks how large the game's cache storage is (command 34): told of 2 GB; it is kept with the saved data, in %s" "\n", SAVE_DIR);
+            nx2_log("[save] the SDK asks how large the game's cache storage is (command 34): told of 2 GB\n");
             answer(m, 0, sizes, sizeof sizes, 0);
             return 3;
         }
         if (kind != 1 || !has_cmd || (cmd != 51 && cmd != 53)) return 0;  // OpenSaveDataFileSystem, and the read-only one
+        // In both cmd 51 and cmd 53, raw input starts at d+32: u8 save_data_space_id (padded to 8 bytes), followed at d+40 by
+        // FsSaveDataAttribute (0x40 bytes: application_id at +0x00, save_data_type at +0x20). Never serve the running game's
+        // own save folder when the game explicitly asks for a different title's save (e.g. Switch 1 -> Switch 2 migration).
+        u64 app_id = 0;
+        u8 save_type = 1;  // FsSaveDataType_Account
+        if (d + 104 <= m + 0x100) {
+            app_id = rd64(d + 40);
+            save_type = d[72];
+        }
+        if (is_other_title(app_id)) {
+            if (cmd == 53 && host_fs && (save_type == 1 || save_type == 3)) {
+                format_other_save_dir(app_id, paths[0]);
+                if (host_dir_exists(m, paths[0])) {
+                    const u32 id = lend_fs(host_fs->s.object_id, 1, 1, paths[0]);
+                    nx2_log("[save] the SDK asks for another title's save data %16x (command 53, type %u): given read-only sdmc:%s\n",
+                            app_id, (u64)save_type, paths[0]);
+                    answer(m, id ? 0 : 0x2EE202, NULL, 0, id);
+                    return 3;
+                }
+                nx2_log("[save] the SDK asks for another title's save data %16x (command 53, type %u): not found at sdmc:%s (returning 7d402)\n",
+                        app_id, (u64)save_type, paths[0]);
+            } else {
+                nx2_log("[save] the SDK asks for another title's save data %16x (command %u, type %u): not found (returning 7d402)\n",
+                        app_id, (u64)cmd, (u64)save_type);
+            }
+            answer(m, 0x7D402, NULL, 0, 0);  // ResultTargetNotFound (Module_Fs = 2, desc = 1002)
+            return 3;
+        }
         if (host_fs) {
-            const u32 id = lend(host_fs->object_id, 1);
-            nx2_log("[save] the SDK asks for the program's save data (command %u): given the host's file system of the card, in %s\n", (u64)cmd, SAVE_DIR);
+            u32 fs = 1;
+            const u8 *attr = d + 40;  // After the domain and CMIF headers and the aligned save-data space ID.
+            if (inline_request_size(m) >= 24 + sizeof(FsSaveDataAttribute) &&
+                attr[offsetof(FsSaveDataAttribute, save_data_type)] == FsSaveDataType_Cache) {
+                const u16 index = (u16)rd32(attr + offsetof(FsSaveDataAttribute, save_data_index));
+                // The size query can succeed before a game explicitly creates the cache.
+                const u32 rc = ensure_cache_directory(index);
+                if (rc) {
+                    answer(m, rc, NULL, 0, 0);
+                    return 3;
+                }
+                fs = 2u + index;
+                nx2_log("[save] mounting SD-backed cache index %u\n", (u64)index);
+            } else {
+                nx2_log("[save] the SDK asks for the program's save data (command %u): given the host's file system of the card, in %s\n", (u64)cmd, SAVE_DIR);
+            }
+            const u32 id = lend_fs(host_fs->s.object_id, fs, cmd == 53, NULL);
             answer(m, id ? 0 : 0x2EE202, NULL, 0, id);
             return 3;
         }
@@ -738,7 +1078,7 @@ int nx2_save_before(u8 *m, char (*paths)[0x301], u32 *handle) {
         save_objects[mine] = 0;
         return 2;
     }
-    if (in_folder(m, cmd, kind == 1 && has_cmd, paths)) return 2;
+    if (in_folder(m, cmd, kind == 1 && has_cmd, SAVE_DIR, 0, d, m + 0x100, paths)) return 2;
     answer(m, 0x2EE202, NULL, 0, 0);
     return 3;
 }

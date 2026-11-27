@@ -9,6 +9,7 @@
 #include <string.h>
 
 #include "nx2.h"
+#include "spinlock.h"
 
 // the SDK's AudioOutBuffer, as far as these functions use it (they are the only ones that look inside)
 typedef struct Buffer {
@@ -30,9 +31,9 @@ static struct {
 static void (*signal_event)(void *);
 
 static void lock(void) {
-    while (__atomic_exchange_n(&out.lock, 1, __ATOMIC_ACQUIRE)) svcSleepThread(0);
+    nx2_spin_lock(&out.lock);
 }
-static void unlock(void) { __atomic_store_n(&out.lock, 0, __ATOMIC_RELEASE); }
+static void unlock(void) { nx2_spin_unlock(&out.lock); }
 
 static u64 ticks_of(u64 bytes) {  // 16 bit samples, of as many channels and at the rate the output was opened with
     const u64 frame = 2 * (u64)(out.channels > 0 ? out.channels : 2), rate = out.rate > 0 ? (u64)out.rate : 48000;

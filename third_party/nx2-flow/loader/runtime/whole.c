@@ -53,8 +53,10 @@ int nx2_map_modules(void) {
         }
 #ifdef NX2_LOADER
         // (the game loader unpacked the module where it is to be mapped from, a page after the start of memory of its own, so that
-        // it is never in memory twice: game.c's module_load)
-        u8 *nro = (u8 *)im->image - shift, *bss = aligned_alloc(page, bss_size);
+        // it is never in memory twice: game.c's module_load. Its bss comes from that same stretch too: a module's bss can be larger
+        // than the host library's 128 MB heap.)
+        u8 *nro = (u8 *)im->image - shift, *bss = nx2_big_alloc(bss_size, 1);
+        if (!bss) bss = aligned_alloc(page, bss_size);
 #else
         u8 *nro = aligned_alloc(page, nro_size), *bss = aligned_alloc(page, bss_size);
 #endif

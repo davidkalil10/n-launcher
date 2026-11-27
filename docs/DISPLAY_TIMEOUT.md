@@ -1,0 +1,15 @@
+# Display timeout during preparation
+
+Two isolated diagnostic builds on the v0.0.12 frontend captured a display failure while the preparation worker was reporting the verified main module. The generic fatal result 0x2B59 (BadGfxDequeueBuffer) came from cpuwinWaitImage returning kernel TimedOut (0xEA01), after 2.418 seconds. No GSV counter IPC failure or unexpected counter mode was reported. The heap snapshot had over 9.4 GB free. This establishes the immediate abort path, not why the compositor release took too long.
+
+The 0.0.14 candidate starts from v0.0.12 without the PR44 runtime-lock backport. The public 0.0.12 embedded game runtime remains byte-for-byte unchanged. The change is in the frontend presentation only. The SDK's framebufferBegin calls a fatal handler on every failed image wait; our checked acquisition uses the same CPU-window wait and commits cur_slot / exposes the linear shadow buffer only on success. On TimedOut it skips that presentation and returns to the main event/job loop: preparation can finish, cancellation can be observed and a successful handoff can proceed. No framebufferEnd or buffer copy follows a failed begin. Other errors return failure and shut down the frontend after joining/canceling its worker. Present/queue errors beyond acquisition are not handled by this fix.
+
+The first eight acquisition failures are logged. A persistent timeout can still prevent UI refresh and add two-second delays; this fix must not be described as repairing the graphics service or eliminating all loading delays. SDK framebufferClose still decides whether the display released its backing. Never fake success or reuse an image still held by the display.
+
+The integration uses the pinned libounce 20261125 CPU-window symbols cpuwinGet/cpuwinWaitImage, with an opaque pointer and no private-struct access. Check that ABI and the CPU framebuffer contract when updating the SDK. The generic acquisition helper is tested with repeated timeout followed by success, propagation of a different error, ring wrap, invalid input, and the invariant that failed waits do not expose pixels or advance the pending slot. Real NRO/map validation and a console regression test remain required.
+
+The memory profiles inspected for the incident were automatic (Pokopia had no game.cfg; Elliot and Zelda had empty configurations). No profile, NUP, cache or save is reset by this change. No kaiHEN reactivation is required to replace or run the frontend. Test on the same Split Fiction host first and check Pokopia, then the Zelda loading issue separately.
+
+## Test package
+
+The dedicated test asset is labelled N Launcher - Display Fix, version 0.0.14, while the normal build keeps the product title. Test NRO size: 20,124,871 bytes; SHA-256 8fc0c56f769ac2c36113020067854ad6b8121158f23b34fac46f82cab96e9937. It was uploaded separately and read back over FTP for verification. Matching symbols are retained with build metadata; neither public release nor CI build is claimed. The console test uses Pokopia over the same Split Fiction host.

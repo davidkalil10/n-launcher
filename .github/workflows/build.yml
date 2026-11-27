@@ -36,6 +36,8 @@ jobs:
           build/lease-test
           g++ -std=c++17 -O2 -Wall -Wextra -Werror -Iinclude -Ithird_party/zstd src/input.cpp src/cache.cpp tests/cache_probe.cpp build/zstd.o -o build/cache-probe
           python3 tests/test_cache.py build/cache-probe
+          g++ -std=c++17 -O2 -Wall -Wextra -Werror -Iinclude tests/test_frame_acquire.cpp -o build/frame-acquire-test
+          build/frame-acquire-test
           g++ -std=c++17 -O2 -Wall -Wextra -Werror -Itests/mock -Iinclude src/input.cpp src/native_input.cpp tests/native_backend_probe.cpp -o build/native-backend
           python3 tests/test_native_backend.py build/native-backend
           g++ -std=c++17 -O2 -Wall -Wextra -Werror -Iinclude src/input.cpp src/update.cpp src/http.cpp src/profile.cpp src/layout.cpp tests/test_app_core.cpp -o build/app-core-test

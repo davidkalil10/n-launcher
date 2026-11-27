@@ -6,6 +6,8 @@
 #include "nx2link/layout.hpp"
 #include "nx2link/version.hpp"
 #include "launch_trace.hpp"
+#include "nx2link/frame_acquire.hpp"
+extern "C" { struct CpuWindow; CpuWindow* cpuwinGet(NWindow*); Result cpuwinWaitImage(CpuWindow*,u32); }
 #include "nx2link/input.hpp"
 #include "nx2link/program.hpp"
 #include "nx2link/loader_probe.hpp"
@@ -87,7 +89,23 @@ void work(void* arg){
     if(job.request.action==nlauncher::Action::Launch)nlauncher::launch_trace("worker.finished",job.success?"success":"failed");
     job.done.store(true);
 }
-void present(Framebuffer& fb,SwitchFrontend::Ui::Canvas& c){u32 pitch;auto* out=static_cast<u8*>(framebufferBegin(&fb,&pitch));for(int y=0;y<c.Height();++y)std::memcpy(out+y*pitch,c.Data()+y*c.Width(),c.Width()*4);framebufferEnd(&fb);}
+bool present(Framebuffer& fb,SwitchFrontend::Ui::Canvas& c){
+    u32 pitch=0;void* pixels=nullptr;
+    const Result rc=nx2link::acquire_cpu_frame(fb,pitch,pixels,[&](u32 slot)->Result {
+        auto* window=cpuwinGet(fb.win);
+        return window?cpuwinWaitImage(window,slot):MAKERESULT(Module_Libnx,LibnxError_NotInitialized);
+    });
+    if(R_FAILED(rc)){
+        static unsigned said=0;
+        if(said++<8)nlauncher::launch_trace("display.acquire.failed",std::to_string(rc));
+        // Keep the pending image untouched. The event/job loop gets control again,
+        // so preparation, cancellation and handoff can progress despite a late frame.
+        return rc==KERNELRESULT(TimedOut);
+    }
+    auto* out=static_cast<u8*>(pixels);
+    for(int y=0;y<c.Height();++y)std::memcpy(out+y*pitch,c.Data()+y*c.Width(),c.Width()*4);
+    framebufferEnd(&fb);return true;
+}
 }
 int main(int argc,char** argv){
     using namespace nlauncher;
@@ -104,7 +122,7 @@ int main(int argc,char** argv){
         padUpdate(&pad);auto bits=padGetButtonsDown(&pad);Keys k;
         k.a=bits&HidNpadButton_A;k.b=bits&HidNpadButton_B;k.x=bits&HidNpadButton_X;k.y=bits&HidNpadButton_Y;k.plus=bits&HidNpadButton_Plus;k.minus=bits&HidNpadButton_Minus;
         k.r=bits&HidNpadButton_R;k.l=bits&HidNpadButton_L;
-        if(startup_error){if(k.b||k.plus)break;menu.draw(*canvas);present(fb,*canvas);continue;}
+        if(startup_error){if(k.b||k.plus)break;menu.draw(*canvas);if(!present(fb,*canvas))break;continue;}
         k.up=bits&HidNpadButton_AnyUp;k.down=bits&HidNpadButton_AnyDown;k.left=bits&HidNpadButton_AnyLeft;k.right=bits&HidNpadButton_AnyRight;
         bool completed_job=false;
         if(job){
@@ -154,7 +172,7 @@ int main(int argc,char** argv){
             if(R_FAILED(rc)){job.reset();if(automatic_request)menu.finish_auto_check(true);else menu.report("Não foi possível iniciar","A operação não começou. Seus arquivos não foram alterados.");}
             else menu.report(automatic_request?"Verificando atualizações ao abrir":"Iniciando verificação","Aguarde…",true);
         }
-        menu.draw(*canvas);present(fb,*canvas);
+        menu.draw(*canvas);if(!present(fb,*canvas))break;
     }
     // Do not release shared buffers while a native worker still owns them.
     if(job){job->cancel.store(true);threadWaitForExit(&job->thread);threadClose(&job->thread);}

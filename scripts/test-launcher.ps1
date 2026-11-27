@@ -20,6 +20,10 @@ try {
     if($LASTEXITCODE -ne 0){throw 'Native backend tests failed'}
     & $Compiler -std=c++17 -O2 -static -static-libgcc -static-libstdc++ -Wall -Wextra -Werror -Iinclude src/input.cpp src/update.cpp src/http.cpp src/profile.cpp src/layout.cpp tests/test_app_core.cpp -o build/host/app-core-test.exe
     if($LASTEXITCODE -ne 0){throw 'App core build failed'}
+    & $Compiler -std=c++17 -O2 -static -static-libgcc -static-libstdc++ -Wall -Wextra -Werror -Iinclude tests/test_frame_acquire.cpp -o build/host/frame-acquire-test.exe
+    if($LASTEXITCODE -ne 0){throw 'Frame acquisition test build failed'}
+    & build/host/frame-acquire-test.exe
+    if($LASTEXITCODE -ne 0){throw 'Frame acquisition tests failed'}
     & $Compiler -std=c++17 -O2 -static -static-libgcc -static-libstdc++ -Wall -Wextra -Werror -Itests/tls_mock -Iinclude tests/test_tls_socket.cpp -o build/host/tls-socket-test.exe
     if($LASTEXITCODE -ne 0){throw 'TLS socket test build failed'}
     & build/host/tls-socket-test.exe

@@ -9,13 +9,21 @@ Nintendo Switch 2 homebrew for preparing and launching NUP backups directly on t
 
 ## Current status
 
-- **Pokopia, split NUP:** graphics, audio, controls, saving and loading validated on the console (no glitches observed on 0.0.16).
-- **Orbitals:** launching, gameplay, saving and loading validated on the console on 0.0.16 (no glitches observed), including support for self-contained packages marked as updates.
-- **The Adventures of Elliot: The Millennium Tales, full game, split NUP:** launching, gameplay, saving and loading validated on the console on 0.0.16 (no glitches observed).
-- **The Legend of Zelda: Ocarina of Time, split NUP:** startup, opening cutscene, loading screens, gameplay, audio, saving and loading validated on the console on 0.0.16 (no glitches observed) using Split Fiction as the host and Automatic memory settings.
-- **In-app updates:** automatic startup checks and in-console installation to 0.0.16 have been validated. Game data, memory profiles and saves are preserved.
+- **In-app updates:** automatic startup checks and in-console installation through `0.0.17` have been validated. Game data, memory profiles and saves are preserved.
+- **Experimental status:** N Launcher remains experimental. Compatibility and validation results apply to the individual titles, host titles and features tested.
 
-N Launcher remains experimental. Compatibility and validation results apply to the individual titles and features tested.
+## Confirmed compatibility
+
+| Title | Format | Status | Version | Notes |
+|---|---|---|---|---|
+| **Pokopia** | Split NUP | Working | 0.0.16 | Graphics, audio, controls, saving and loading validated on console (no glitches observed). |
+| **Orbitals** | NUP | Working | 0.0.16 | Launching, gameplay, saving and loading validated on console (no glitches observed); self-contained update package. |
+| **The Adventures of Elliot: The Millennium Tales** | Split NUP | Working | 0.0.16 | Full game launching, gameplay, saving and loading validated on console (no glitches observed). |
+| **The Legend of Zelda: Ocarina of Time** | Split NUP | Working | 0.0.16 | Opening cutscene, loading screens, gameplay, audio, saving and loading validated on console (no glitches observed; ZBIC NSO, Split Fiction host, Automatic memory). |
+| **Donkey Kong Bananza** | Split NUP | Working | 0.0.17 | Validated on console after 0-byte NUP entry fix. |
+| **Fast Fusion** | NUP | Working | 0.0.17 | Validated on console. |
+| **Super Mario Bros. Wonder** | NUP | Working | 0.0.17 | Validated on console. |
+| **Mario Kart World** | Split NUP | Host-limited | 0.0.17 | Initializes CPU, audio, shaders and NVN buffers, but requires a host title with at least **192 MB Remote Memory** and **64 MB System Resource** (aborts on 48–64 MB hosts). |
 
 ## Installation and updates
 

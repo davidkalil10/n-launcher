@@ -74,3 +74,7 @@ Abertura do Orbitals confirmada no console após a correção para NUP autoconti
 ## Elliot na versão normal 0.0.11
 
 Abertura do jogo completo splitado confirmada no console com a 0.0.11, sem utilizar o diagnóstico. A falha da preparação observada na 0.0.10 não se repetiu nessa tentativa. Não atribuir o resultado a uma correção específica: o preflight não foi alterado para resolver essa falha. Áudio, salvar/carregar e retorno ao hbmenu do Elliot continuam sem validação específica. A confirmação não informa qual método de atualização foi usado nem valida o fluxo completo do updater.
+
+## Contexto posterior da falha pós-update
+
+A atualização pelo updater e a opção A Reabrir agora foram utilizadas antes do crash do Elliot. Em outra tentativa, uma abertura manual do aplicativo permitiu executar o jogo sem reiniciar o console. O percurso do updater foi exercitado no hardware; estabilidade da primeira sessão após reabertura automática continua sem confirmação. Não inferir falha de integridade do NUP nem causa em kaiHEN. A comparação também envolve versões diferentes e não estabelece causalidade.

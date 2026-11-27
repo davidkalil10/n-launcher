@@ -58,3 +58,7 @@ Uma consulta é agendada ao abrir o aplicativo e usa o worker existente antes de
 A consulta usa a janela de progresso existente e permite solicitar cancelamento com B. Não instala automaticamente. Resultado sem versão nova ou erro retorna à biblioteca; erros de rede mostram aviso discreto e podem ser consultados novamente com R. Uma versão nova abre a confirmação e exige um novo A após sua exibição. A consulta manual na mesma abertura consome o agendamento automático, evitando duas requisições seguidas.
 
 Atualizações gravam logs/update-operation.log. Os registros de preparação e abertura não são substituídos pela consulta ao iniciar. Não confundir a execução do Orbitals com validação de download/troca do aplicativo no console. O diagnóstico do Elliot continua separado desta mudança.
+
+## Observação de estabilidade após reabrir
+
+Há um relato de encerramento na preparação do Elliot na primeira sessão após atualizar e usar A Reabrir agora. Uma abertura posterior funcionou sem reboot. A relação causal continua em investigação; ver ELLIOT_INVESTIGATION.md. Como contorno, é possível usar B após instalar, voltar ao hbmenu e abrir manualmente. O código não foi alterado com base apenas nessa correlação.

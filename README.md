@@ -12,7 +12,7 @@ Nintendo Switch 2 homebrew for preparing and launching NUP backups directly on t
 - **Pokopia, split NUP:** graphics, audio, controls, saving and loading have been validated on the console.
 - **Orbitals:** launching has been confirmed after adding support for self-contained packages marked as updates. Audio, saves and return to hbmenu still need separate validation for this title.
 - **The Adventures of Elliot: The Millennium Tales, full game, split NUP:** launching has been confirmed with the standard 0.0.11 build. An earlier preparation crash in 0.0.10 remains unexplained; no diagnostic build was needed for the successful attempt. Audio, saves and return to hbmenu still need separate validation for this title.
-- **In-app updates:** version 0.0.9 introduced the corrected TLS transport. Version 0.0.11 checks for new releases automatically on startup; download, installation and restart still require validation on the console.
+- **In-app updates:** version 0.0.9 introduced the corrected TLS transport. Version 0.0.11 checks for new releases automatically on startup; update installation and automatic reopening have been exercised on the console. An Elliot preparation crash on the first session after updating remains under investigation; a later manual reopening succeeded without rebooting the console.
 
 N Launcher remains experimental. Compatibility and validation results apply to the individual titles and features tested.
 

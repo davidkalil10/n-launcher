@@ -101,3 +101,9 @@ Elliot 0.0.10 encerrou antes do runtime; a imagem main do SD e do PC tem o mesmo
 ## Confirmação posterior — Elliot 0.0.11
 
 O Elliot abriu no console com a build normal 0.0.11, sem precisar do diagnóstico. Não pedir para trocar uma versão que está funcionando apenas para provocar o crash. Manter a instrumentação separada e recorrer a ela se a falha reaparecer. A causa da falha da 0.0.10 continua indeterminada: não houve correção específica do preflight. Registrar apenas abertura confirmada, sem inferir áudio, saves ou validação do método de atualização usado.
+
+## Pista temporal do crash do Elliot
+
+A tentativa que falhou veio imediatamente após updater → A Reabrir agora. A tentativa que abriu o jogo veio após abrir novamente o aplicativo, sem reboot do console. Registrar como correlação da primeira sessão pós-update, sem atribuir causa ou afirmar correção na 0.0.11. A versão também mudou entre observações, portanto o teste não foi uma comparação controlada da mesma build.
+
+Código já aguarda o worker e chama threadClose antes de oferecer reabertura; rede usa RAII. Não houve falha específica demonstrada para corrigir com segurança. Contorno sugerido: após atualizar, B para hbmenu e abrir manualmente. Não exigir reboot nem provocar outro crash. Se recorrer, comparar o caminho de reabertura com a mesma versão e preservar registros. Updater foi efetivamente utilizado no console, mas a estabilidade após reabertura automática continua sob investigação.

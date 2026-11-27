@@ -25,7 +25,11 @@ jobs:
         run: |
           mkdir -p build
           gcc -O2 -DZSTD_DISABLE_ASM -c third_party/zstd/zstddeclib.c -o build/zstd.o
-          g++ -std=c++17 -O2 -Wall -Wextra -Werror -Iinclude -Ithird_party/zstd src/input.cpp src/program.cpp src/cli.cpp build/zstd.o -o build/probe
+          python3 tools/prepare_zbic.py
+          gcc -O2 -DNX2_LOADER -c build/generated/zbic.c -o build/zbic.o
+          g++ -std=c++17 -O2 -Wall -Wextra -Werror -Iinclude -Ithird_party/zstd src/input.cpp src/program.cpp src/cli.cpp build/zstd.o build/zbic.o -o build/probe
+          g++ -std=c++17 -O2 -Wall -Wextra -Werror -Ithird_party/zstd tests/test_zbic.cpp build/zbic.o build/zstd.o -o build/zbic-test
+          build/zbic-test
           python3 tests/test_program.py build/probe
           python3 tests/test_input.py build/probe
           g++ -std=c++17 -O2 -Wall -Wextra -Werror -Iinclude tests/test_module_lease.cpp -o build/lease-test

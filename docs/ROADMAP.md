@@ -19,6 +19,8 @@
 - Builds automáticas e pacote SD com licenças/manifesto/checksums.
 - Atualizador HTTPS com confirmação e cópia anterior até a nova versão iniciar.
 
+- Preflight ZBIC implementado na 0.0.12, com testes sintéticos e preparação do Zelda splitado aprovada no PC; execução desse título no console ainda pendente.
+
 ## Próximos passos
 
 - Testar TLS/consulta, troca e confirmação do atualizador no hardware.
@@ -26,7 +28,7 @@
 - Ampliar matriz de jogos e testar retorno ao hbmenu.
 - Gerenciar espaço/cache e oferecer revalidação integral opcional.
 - Retomada de preparação por bloco, depois de validar integridade.
-- Preflight ZBIC e catálogo para partes .nup.00.
+- Catálogo para partes .nup.00.
 - Testes diferenciais adicionais de overlays/relocações com o builder PC.
 - Revisar otimizações upstream manualmente, mantendo revisões e licenças fixadas.
 

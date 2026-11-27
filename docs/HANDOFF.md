@@ -10,7 +10,7 @@ Preparar e iniciar NUPs diretamente no Switch 2, incluindo pastas `.nup/00,01,�
 
 - `src/input.cpp`: leitor comum completo/split e verificação da TOC; offsets cumulativos de 64 bits.
 - `src/archive.hpp`: travessia verificada compartilhada, seleção de módulos e overlay de RomFS base/updates.
-- `src/program.cpp`: preparação NSO, LZ4, hashes e inventário SVC. Preserva SVC 0x36. Preflight ainda rejeita ZBIC.
+- `src/program.cpp`: preparação NSO, LZ4, hashes e inventário SVC. Preserva SVC 0x36. Preflight aceita ZBIC desde 0.0.12.
 - `src/cache.cpp`: descompressão streaming dos arquivos grandes de RomFS, SHA incremental, staging, espaço e publicação.
 - `src/gui.cpp`: interface gráfica independente do console; `gui_switch.cpp`: framebuffer, controle, thread de preparação e handoff.
 - `src/native_input.cpp`: setup com Input; leituras no contexto do jogo usam somente estruturas POD, locks atômicos e FS nativo. Não usar STL, alocação ou C stdio no caminho das threads do jogo.
@@ -49,7 +49,7 @@ Não acessar um IP antigo do console sem confirmação. Não reiniciar automatic
 
 ## Limitações abertas
 
-Preflight ZBIC não implementado; PFS0/NCA criptografados não suportados; .nup.00 existe no leitor, mas não no catálogo. Cache publicado confere marcador/tamanhos sem rehash completo; cancelar reinicia o arquivo parcial. Limpeza e revalidação integral de cache ainda sem interface. TLS, atualização efetiva e migração no hardware precisam de teste. Nunca declarar compatibilidade geral a partir de um jogo.
+PFS0/NCA criptografados não suportados; .nup.00 existe no leitor, mas não no catálogo. Cache publicado confere marcador/tamanhos sem rehash completo; cancelar reinicia o arquivo parcial. Limpeza e revalidação integral de cache ainda sem interface. TLS, atualização efetiva e migração no hardware precisam de teste. Nunca declarar compatibilidade geral a partir de um jogo.
 
 ## Investigação de fechamento — diagnóstico 0.0.5
 
@@ -107,3 +107,11 @@ O Elliot abriu no console com a build normal 0.0.11, sem precisar do diagnóstic
 A tentativa que falhou veio imediatamente após updater → A Reabrir agora. A tentativa que abriu o jogo veio após abrir novamente o aplicativo, sem reboot do console. Registrar como correlação da primeira sessão pós-update, sem atribuir causa ou afirmar correção na 0.0.11. A versão também mudou entre observações, portanto o teste não foi uma comparação controlada da mesma build.
 
 Código já aguarda o worker e chama threadClose antes de oferecer reabertura; rede usa RAII. Não houve falha específica demonstrada para corrigir com segurança. Contorno sugerido: após atualizar, B para hbmenu e abrir manualmente. Não exigir reboot nem provocar outro crash. Se recorrer, comparar o caminho de reabertura com a mesma versão e preservar registros. Updater foi efetivamente utilizado no console, mas a estabilidade após reabertura automática continua sob investigação.
+
+## Preflight ZBIC — 0.0.12
+
+A 0.0.11 recusou o main de Zelda Ocarina of Time, NUP de seis partes, com ZBIC NSO segments are not supported yet. O runtime já continha o decoder. A preparação agora usa o mesmo zbic.c MIT do snapshot nx2-flow 0.1.3; tools/prepare_zbic.py verifica o hash em config/flow.json e gera apenas uma adaptação dos tipos, sem alterar o snapshot. Chamada do transcoder serializada por mutex porque seus buffers de trabalho são estáticos.
+
+O frame convertido ocupa no máximo packed + packed/4 + 64 KiB, com packed limitado a 256 MiB; saída de segmento continua limitada a 256 MiB. Zstandard escreve no destino já limitado, e tamanho/hashes NSO continuam conferidos. Não alterar SVC 0x36 nem escrever imagens de jogo em heap executável.
+
+Testes: amostra sintética real de tabela ZBIC por mixed radix, frame Zstd esperado, concatenação, todas as truncagens da amostra, buffer curto e 1.500 entradas pequenas malformadas. 27 testes de programa e 12 do leitor aprovados. Os três módulos do Zelda splitado passaram no preflight local. Isso ainda não valida execução no console. Nenhum dump/save alterado ou enviado ao CI.

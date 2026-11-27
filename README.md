@@ -43,6 +43,8 @@ The main NRO includes the loader. No Python installation, compiler or DLLs are n
 
 Self-contained NUPs marked as updates can also be prepared, following the runtime's behavior. An incomplete update still requires its missing files; N Launcher does not supply them.
 
+The preparer supports LZ4 and ZBIC-compressed NSO segments. ZBIC uses the pinned runtime transcoder, followed by Zstandard decoding and the existing segment hash checks. Zelda: Ocarina of Time passed preparation on the PC with a six-part NUP; console execution is still awaiting validation.
+
 ## Per-game memory settings
 
 Open **Y → Per-game memory** to adjust the memory reported to the game and the loader's initial reservation. Use left/right to change values, **A** to save, **X** to restore **Automatic** and **B** to cancel. Profiles are keyed by title ID and preserve the other fields in `game.cfg`, including the save slot.
@@ -105,7 +107,7 @@ If you find **N Launcher** useful, consider buying me a coffee to support contin
 
 Maintained by **David Kalil Braga ([@davidkalil10](https://github.com/davidkalil10))**.
 
-- [Olmectron/nx2-flow](https://github.com/Olmectron/nx2-flow): generic loader 0.1.3, MIT; menu components 0.2.2, GPL-2.0-or-later. Revision and hashes are pinned in `config/flow.json`; adaptations are generated separately.
+- [Olmectron/nx2-flow](https://github.com/Olmectron/nx2-flow): generic loader 0.1.3 and ZBIC transcoder, MIT; menu components 0.2.2, GPL-2.0-or-later. Revision and hashes are pinned in `config/flow.json`; adaptations are generated separately.
 - [nx2-relink](https://github.com/Olmectron/nx2-relink) and [nx-relink](https://github.com/Olmectron/nx-relink): MIT runtime and relinker; reference version 0.1.12, including the audio fix, is pinned in `config/upstream.json`.
 - [Toronja](https://github.com/Olmectron/toronja), Azahar Emulator Project and PalindromicBreadLoaf: origins of the graphics components; GPL notices are preserved.
 - [a55uka/nup](https://github.com/a55uka/nup): NUP format.

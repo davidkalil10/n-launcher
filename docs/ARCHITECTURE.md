@@ -30,4 +30,4 @@ O preflight de cache aplica base/updates e verifica espaço antes de gravar. A c
 
 O NRO principal contém o loader e materializa sua versão na pasta interna `.runtime`. O handoff informa o caminho original do NUP e o NRO do menu para retorno. Não há instalação de título ou nova ativação do kaiHEN. Ownership e permissões do carregamento continuam sob o protocolo upstream; a prova sintética anterior valida somente o seu caminho reduzido de carga/execução/descarga.
 
-Preflight ZBIC, compatibilidade de jogos, áudio, saves e retorno são limites explícitos. Este projeto não converte jogos de Switch 2 em títulos de Switch 1, não é um emulador de CPU/GPU, não modifica NAND e não distribui jogos ou chaves.
+Compatibilidade por jogo, áudio, saves e retorno permanecem limites explícitos; o preflight ZBIC foi implementado na 0.0.12. Este projeto não converte jogos de Switch 2 em títulos de Switch 1, não é um emulador de CPU/GPU, não modifica NAND e não distribui jogos ou chaves.

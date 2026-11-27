@@ -7,9 +7,12 @@
 #include <iomanip>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <set>
 #include <sstream>
 #include <stdexcept>
+
+extern "C" int64_t nx2_zbic_to_zstd(const uint8_t*,uint64_t,uint8_t*,uint64_t);
 
 namespace nx2link {
 namespace {
@@ -19,6 +22,24 @@ void bounds(uint64_t at,uint64_t size,uint64_t limit){if(at>limit||size>limit-at
 uint64_t le(const uint8_t* b,unsigned n){uint64_t v=0;for(unsigned i=0;i<n;++i)v|=uint64_t(b[i])<<(8*i);return v;}
 std::string hex(const uint8_t* data,size_t n){std::ostringstream s;s<<std::hex<<std::setfill('0');for(size_t i=0;i<n;++i)s<<std::setw(2)<<unsigned(data[i]);return s.str();}
 using archive_detail::Archive;
+
+void zbic(const uint8_t* source,size_t packed,uint8_t* output,size_t size){
+    if(packed>Limit||size>Limit)bad("ZBIC segment exceeds preparation limits");
+    const size_t room=packed+packed/4+(1u<<16); // Same bounded expansion allowance as the pinned runtime.
+    std::vector<uint8_t> frame(room);int64_t converted;
+    {
+        // The upstream transcoder has static scratch tables; serialize its calls.
+        static std::mutex lock;std::lock_guard<std::mutex> guard(lock);
+        converted=nx2_zbic_to_zstd(source,packed,frame.data(),frame.size());
+    }
+    if(converted<=0||uint64_t(converted)>frame.size())bad("Invalid ZBIC frame or conversion exceeds bounded workspace");
+    std::unique_ptr<ZSTD_DCtx,decltype(&ZSTD_freeDCtx)> context(ZSTD_createDCtx(),ZSTD_freeDCtx);
+    if(!context)bad("Cannot allocate ZBIC decoder");
+    // One-shot decoding writes only to the already bounded segment destination.
+    const size_t decoded=ZSTD_decompressDCtx(context.get(),output,size,frame.data(),size_t(converted));
+    if(ZSTD_isError(decoded))bad(std::string("ZBIC/Zstd: ")+ZSTD_getErrorName(decoded));
+    if(decoded!=size)bad("ZBIC expanded size mismatch");
+}
 
 void lz4(const uint8_t* src,size_t count,uint8_t* out,size_t size) {
     size_t ip=0,op=0;
@@ -55,8 +76,8 @@ PreparedModule prepare_nso(const std::vector<uint8_t>& raw) {
     for(unsigned i=0;i<3;++i) {
         const auto* src=raw.data()+offsets[i];auto* dst=m.image.data()+mem[i];
         if(flags&(1u<<i)) {
-            if((flags&0x80)&&stored[i]>=4&&!std::memcmp(src,"ZBIC",4))bad("ZBIC NSO segments are not supported yet");
-            lz4(src,size_t(stored[i]),dst,size_t(sizes[i]));
+            if((flags&0x80)&&stored[i]>=4&&!std::memcmp(src,"ZBIC",4))zbic(src,size_t(stored[i]),dst,size_t(sizes[i]));
+            else lz4(src,size_t(stored[i]),dst,size_t(sizes[i]));
         } else std::memcpy(dst,src,size_t(sizes[i]));
         if(flags&(1u<<(3+i))) {
             const auto hash=digest256(dst,size_t(sizes[i]));

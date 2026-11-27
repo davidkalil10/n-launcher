@@ -10,8 +10,16 @@ try {
     $cc=Join-Path (Split-Path -Parent $compilerPath) 'gcc.exe'
     & $cc -O2 -DZSTD_DISABLE_ASM -c third_party/zstd/zstddeclib.c -o build/host/zstd.o
     if($LASTEXITCODE -ne 0){throw 'Decoder build failed'}
-    & $Compiler -std=c++17 -O2 -municode -static -static-libgcc -static-libstdc++ -Wall -Wextra -Werror -Iinclude -Ithird_party/zstd src/input.cpp src/program.cpp src/cli.cpp build/host/zstd.o -o build/host/nx2link-probe.exe
+    python tools/prepare_zbic.py
+    if($LASTEXITCODE -ne 0){throw 'ZBIC source preparation failed'}
+    & $cc -O2 -DNX2_LOADER -c build/generated/zbic.c -o build/host/zbic.o
+    if($LASTEXITCODE -ne 0){throw 'ZBIC decoder build failed'}
+    & $Compiler -std=c++17 -O2 -municode -static -static-libgcc -static-libstdc++ -Wall -Wextra -Werror -Iinclude -Ithird_party/zstd src/input.cpp src/program.cpp src/cli.cpp build/host/zstd.o build/host/zbic.o -o build/host/nx2link-probe.exe
     if($LASTEXITCODE -ne 0){throw 'Host build failed'}
+    & $Compiler -std=c++17 -O2 -static -static-libgcc -static-libstdc++ -Wall -Wextra -Werror -Ithird_party/zstd tests/test_zbic.cpp build/host/zbic.o build/host/zstd.o -o build/host/zbic-test.exe
+    if($LASTEXITCODE -ne 0){throw 'ZBIC test build failed'}
+    & build/host/zbic-test.exe
+    if($LASTEXITCODE -ne 0){throw 'ZBIC tests failed'}
     & $Compiler -std=c++17 -O2 -static -static-libgcc -static-libstdc++ -Wall -Wextra -Werror -Iinclude tests/test_module_lease.cpp -o build/host/module-lease-test.exe
     if($LASTEXITCODE -ne 0){throw 'Lease test build failed'}
     & build/host/module-lease-test.exe

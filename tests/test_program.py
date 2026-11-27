@@ -21,6 +21,22 @@ def zstd_raw(b):
     if len(b)<256:h=b'\x20'+bytes([len(b)])
     else:h=b'\x60'+struct.pack('<H',len(b)-256)
     return b'\x28\xb5\x2f\xfd'+h+((len(b)<<3)|1).to_bytes(3,'little')+b
+def nso_zbic(modes=('zbic','zbic','zbic'),table=False):
+    original,_=nso();h=bytearray(original[:256]);segments=[];payload=b'';flags=0x38|0x80
+    for i,mode in enumerate(modes):
+        off,_,size=struct.unpack_from('<III',original,16+i*16);data=original[off:off+size]
+        if table and i==2:data=b'A'*100
+        segments.append(data)
+        if mode=='plain':encoded=data
+        elif mode=='lz4':encoded=literal(data);flags|=1<<i
+        else:
+            encoded=bytes.fromhex('5a42494320646500000841019403607203002a6004') if table and i==2 else b'ZBIC'+zstd_raw(data)[4:]
+            flags|=1<<i
+        struct.pack_into('<I',h,16+i*16,256+len(payload));struct.pack_into('<I',h,24+i*16,len(data));struct.pack_into('<I',h,0x60+4*i,len(encoded));h[0xa0+32*i:0xc0+32*i]=hashlib.sha256(data).digest();payload+=encoded
+    struct.pack_into('<I',h,12,flags)
+    image=segments[0]+bytes(0x1000-len(segments[0]))+segments[1]+bytes(0x1000-len(segments[1]))+segments[2]
+    return bytes(h)+payload,hashlib.sha256(image).hexdigest()
+
 def nup(packages,codec=0,corrupt_file_hash=False,truncate=False,cycle=False):
     # packages: (kind, version, {module name: NSO bytes}); one root and one ExeFS per package.
     pool=bytearray();names={}
@@ -106,6 +122,16 @@ class Program(unittest.TestCase):
         raw,_=nso();raw=bytearray(raw);struct.pack_into('<I',raw,0x24,0xffffff00);self.run_program(nup([(0,0,{'main':bytes(raw)})]),ok=False)
     def test_unknown_subsdk_not_silently_skipped(self):
         raw,_=nso();self.assertIn("additional ExeFS module",self.run_program(nup([(0,0,{"main":raw,"subsdk10":raw})]),ok=False))
+    def test_zbic_plain_blocks(self):
+        raw,sha=nso_zbic();self.assertIn(sha,self.run_program(nup([(0,0,{'main':raw})])))
+    def test_zbic_probability_table_and_outer_zstd_split(self):
+        raw,sha=nso_zbic(table=True);self.assertIn(sha,self.run_program(nup([(0,0,{'main':raw})],codec=1),split=True))
+    def test_mixed_zbic_lz4_uncompressed_segments(self):
+        raw,sha=nso_zbic(('zbic','lz4','plain'));self.assertIn(sha,self.run_program(nup([(0,0,{'main':raw})])))
+    def test_zbic_segment_hash_still_checked(self):
+        raw,_=nso_zbic();raw=bytearray(raw);raw[0xa0]^=1;self.assertIn('NSO segment SHA-256',self.run_program(nup([(0,0,{'main':bytes(raw)})]),ok=False))
+    def test_zbic_declared_size_must_match(self):
+        raw,_=nso_zbic();raw=bytearray(raw);struct.pack_into('<I',raw,0x18,257);self.assertIn('ZBIC',self.run_program(nup([(0,0,{'main':bytes(raw)})]),ok=False))
     def test_zbic_reported_explicitly(self):
         raw,_=nso(True);raw=bytearray(raw);raw[12]|=0x80;start=struct.unpack_from('<I',raw,0x10)[0];raw[start:start+4]=b'ZBIC';self.assertIn('ZBIC',self.run_program(nup([(0,0,{'main':bytes(raw)})]),ok=False))
 if __name__=='__main__':unittest.main()

@@ -37,7 +37,7 @@ O SDK possui 57 instruções SVC identificadas. Nenhum código de jogo ou imagem
 - NUP v1; PFS0/NCA não é interpretado como NUP. Ainda sem extração de pasta solta.
 - É necessário pacote base; DLC e atualizações de outro título não são misturados.
 - Arquivo de programa e imagem NSO limitados individualmente a 256 MiB; limite virtual do módulo/BSS de 1 GiB. Isso não define a RAM que será informada ao jogo.
-- ZBIC é detectado e recusado explicitamente; ainda não implementado. O Pokopia testado usa segmentos LZ4, e o NUP os guarda em Zstandard.
+- ZBIC é aceito desde a 0.0.12: o transcoder MIT fixado do nx2-flow reescreve o frame como Zstandard e o decoder valida tamanho e hashes. LZ4 e segmentos sem compressão continuam aceitos, inclusive misturados no mesmo NSO. O formato externo do NUP é independente da compressão interna do NSO.
 - Ainda sem relocações/imports/TLS em execução, thunks SVC, runtime do jogo, montagem RomFS ou chamada de nnMain. O botão Y não é um launcher de jogo.
 - A leitura pode ocupar alguns segundos por módulo; o progresso é atualizado entre módulos. Cancelamento fino durante a descompressão é melhoria posterior.
 

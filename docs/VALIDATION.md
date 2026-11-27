@@ -78,3 +78,7 @@ Abertura do jogo completo splitado confirmada no console com a 0.0.11, sem utili
 ## Contexto posterior da falha pós-update
 
 A atualização pelo updater e a opção A Reabrir agora foram utilizadas antes do crash do Elliot. Em outra tentativa, uma abertura manual do aplicativo permitiu executar o jogo sem reiniciar o console. O percurso do updater foi exercitado no hardware; estabilidade da primeira sessão após reabertura automática continua sem confirmação. Não inferir falha de integridade do NUP nem causa em kaiHEN. A comparação também envolve versões diferentes e não estabelece causalidade.
+
+## ZBIC 0.0.12
+
+27 testes de programa, 12 de leitor e ownership do loader aprovados localmente. O teste dedicado do transcoder cobre uma tabela de probabilidades sintética genuína, comparação do frame convertido, descompressão, concatenação, truncagens e limites sob entradas malformadas. O Zelda de seis partes passou pelo preflight dos três módulos no PC, mantendo os hashes de segmento quando presentes. O erro anterior foi confirmado por leitura dos logs da 0.0.11 no console. Execução de jogo com esta mudança ainda pendente no hardware.

@@ -5,6 +5,7 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'tools'))
 from prepare_flow import prepare
+from prepare_zbic import prepare as prepare_zbic
 from bake_ui_font import bake
 
 def main():
@@ -37,7 +38,9 @@ def main():
         blob=out/'runtime_blob.S';blob.write_text('.section .rodata.nl_runtime,"a"\n.balign 16\n.global nl_runtime_begin\n.global nl_runtime_end\nnl_runtime_begin:\n.incbin "dist/n-launcher-game.nro"\nnl_runtime_end:\n',encoding='ascii')
         obj=out/'runtime_blob.o';cc=Path(a.compiler).with_name('aarch64-none-elf-gcc.exe')
         run([cc,'-c',blob,'-o',obj])
-        run([a.compiler,*flags,*common,'src/program.cpp','src/cache.cpp','src/loader_probe.cpp','src/gui_switch.cpp','src/launch_trace.cpp','src/update.cpp','src/http.cpp','src/https_switch.cpp','src/layout.cpp','build/switch2/zstd.o',obj,f'-L{sdk}/libounce/lib',f'-L{sdk}/portlibs/switch2/lib','-lkaihen','-lounce_core' if a.allocator=='newlib' else '-lnx','-Wl,--gc-sections',f'-Wl,-Map,{mapfile}','-o',elf])
+        generated=prepare_zbic();zbic_obj=out/'zbic.o'
+        run([cc,'-c','-O2','-fPIE','-mcpu=cortex-a78c+crypto','-mtp=soft','-ffunction-sections','-fdata-sections','-DNX2_LOADER',generated,'-o',zbic_obj])
+        run([a.compiler,*flags,*common,'src/program.cpp','src/cache.cpp','src/loader_probe.cpp','src/gui_switch.cpp','src/launch_trace.cpp','src/update.cpp','src/http.cpp','src/https_switch.cpp','src/layout.cpp','build/switch2/zstd.o',zbic_obj,obj,f'-L{sdk}/libounce/lib',f'-L{sdk}/portlibs/switch2/lib','-lkaihen','-lounce_core' if a.allocator=='newlib' else '-lnx','-Wl,--gc-sections',f'-Wl,-Map,{mapfile}','-o',elf])
         map_text=mapfile.read_text(errors='replace')
         if a.allocator=='newlib' and ('libounce_core.a' not in map_text or 'malloc_init.o' in map_text or '__mi_theap_default' in map_text):
             raise RuntimeError('Frontend allocator does not match requested newlib baseline')

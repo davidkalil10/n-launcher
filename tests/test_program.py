@@ -134,4 +134,10 @@ class Program(unittest.TestCase):
         raw,_=nso_zbic();raw=bytearray(raw);struct.pack_into('<I',raw,0x18,257);self.assertIn('ZBIC',self.run_program(nup([(0,0,{'main':bytes(raw)})]),ok=False))
     def test_zbic_reported_explicitly(self):
         raw,_=nso(True);raw=bytearray(raw);raw[12]|=0x80;start=struct.unpack_from('<I',raw,0x10)[0];raw[start:start+4]=b'ZBIC';self.assertIn('ZBIC',self.run_program(nup([(0,0,{'main':bytes(raw)})]),ok=False))
+    def test_large_bss_over_1gib_allowed(self):
+        raw,sha=nso();raw=bytearray(raw);struct.pack_into('<I',raw,0x3c,1209*1024*1024)
+        self.assertIn(sha,self.run_program(nup([(0,0,{'main':bytes(raw)})])))
+    def test_excessive_bss_over_2gib_rejected(self):
+        raw,_=nso();raw=bytearray(raw);struct.pack_into('<I',raw,0x3c,2048*1024*1024)
+        self.assertIn('outside preparation limits',self.run_program(nup([(0,0,{'main':bytes(raw)})]),ok=False))
 if __name__=='__main__':unittest.main()

@@ -35,6 +35,7 @@ def patch_runtime(out):
     s=s.replace('                } else if (e->kind == 2) {','                } else if (e->kind == 3) {\n                    rc = nl_cache_read((u32)e->at,in-e->data,to,take);\n                } else if (e->kind == 2) {',1)
     p.write_text(s,encoding='utf-8',newline='\n')
     patch_heapdef_fixed_heaps(out)
+    patch_large_bss(out)
     patch_priority_locks(out)
     # Both fallback and normal return paths point to our app, without changing activation.
     for p in (out/'loader/runtime').glob('*.c'):
@@ -148,6 +149,54 @@ static void heaps_read(void) {''')
                 if (fit < most) most = fit;
             }
 #endif''')
+
+
+def patch_large_bss(out):
+    """Backport upstream nx2-flow 0.2.6 large NSO BSS allocation in nx2_big_at and loader room sizing."""
+    def patch(file,before,after):
+        p=out/'loader/runtime'/file;s=p.read_text(encoding='utf-8')
+        if s.count(before)!=1:raise RuntimeError(f'Large-BSS patch drift: {file}: {before[:70]}')
+        p.write_text(s.replace(before,after),encoding='utf-8',newline='\n')
+    patch('whole.c',
+          '        u8 *nro = (u8 *)im->image - shift, *bss = aligned_alloc(page, bss_size);',
+          '        u8 *nro = (u8 *)im->image - shift, *bss = nx2_big_alloc(bss_size, 1);\n        if (!bss) bss = aligned_alloc(page, bss_size);')
+    patch('game.c',
+          '    return big_end_wanted(cache);',
+          '''    u64 bss_need = 0;
+    for (unsigned k = 0; k < nx2_module_count; k++) {
+        const Nx2Image *im = &nx2_images[k];
+        if (!im->image) continue;
+        const u64 rw_end = (im->image_size + 0xFFFull) & ~0xFFFull;
+        const u64 bss_size = (nx2_modules[k].end > rw_end ? nx2_modules[k].end - rw_end : 0) + 0x1000ull;
+        bss_need += (bss_size + 0xFFFull) & ~0xFFFull;
+    }
+    return big_end_wanted(bss_need + cache);''')
+    patch('main.c',
+          '''            u64 room = 384;
+            const char *said = envGetArgv();
+            for (const char *c = said; c && *c; c++)
+                if (c[0] == 'r' && c[1] == 'o' && c[2] == 'o' && c[3] == 'm' && c[4] == '=' && (c == said || c[-1] == ' ')) {
+                    u64 mb = 0;
+                    for (const char *d = c + 5; *d >= '0' && *d <= '9'; d++) mb = mb * 10 + (u64)(*d - '0');
+                    if (mb >= 128 && mb <= 2048) room = mb;
+                }''',
+          '''            u64 room = 1536;
+            const char *said = envGetArgv();
+            for (const char *c = said; c && *c; c++)
+                if (c[0] == 'r' && c[1] == 'o' && c[2] == 'o' && c[3] == 'm' && c[4] == '=' && (c == said || c[-1] == ' ' || c[-1] == '"')) {
+                    u64 mb = 0;
+                    const char *d = c + 5;
+                    for (; *d >= '0' && *d <= '9'; d++) mb = mb * 10 + (u64)(*d - '0');
+                    if ((!*d || *d == ' ' || *d == '"') && mb >= 128 && mb <= 4096) room = mb;
+                }''')
+    patch('main.c',
+          '        if (addr && size > 4 * host && R_SUCCEEDED(svcGetInfo(&base, InfoType_HeapRegionAddress, CUR_PROCESS_HANDLE, 0))) {',
+          '''#ifdef NX2_LOADER
+        const u64 enough = 2 * host;
+#else
+        const u64 enough = 4 * host;
+#endif
+        if (addr && size > enough && R_SUCCEEDED(svcGetInfo(&base, InfoType_HeapRegionAddress, CUR_PROCESS_HANDLE, 0))) {''')
 
 
 def patch_priority_locks(out):

@@ -91,7 +91,7 @@ PreparedModule prepare_nso(const std::vector<uint8_t>& raw) {
     if(dyn<0||bss_begin<0||bss_end<bss_begin||object<0)bad("Invalid MOD0 relative offsets");
     bounds(uint64_t(dyn),16,m.image.size());
     m.end=std::max<uint64_t>(m.image.size()+le(raw.data()+0x3c,4),uint64_t(bss_end));
-    if(m.end>1024ull*1024*1024||uint64_t(object)>=m.end)bad("NSO BSS/module object outside preparation limits");
+    if(m.end>2048ull*1024*1024||uint64_t(object)>=m.end)bad("NSO BSS/module object outside preparation limits");
     m.dynamic=uint32_t(dyn);m.module_object=uint32_t(object);
     for(uint32_t at=0;at+4<=m.text_size;at+=4) {
         auto word=uint32_t(le(m.image.data()+at,4));

@@ -70,3 +70,7 @@ Orbitals original e splitado: índice íntegro, um pacote kind=1. A exigência p
 Abertura do Orbitals confirmada no console após a correção para NUP autocontido marcado como atualização. Isso valida o avanço além da preparação para este arquivo; não comprova áudio, salvar/carregar ou retorno ao hbmenu desse título.
 
 0.0.10 mantém o código de execução da 0.0.9 e sobe a versão para testar o fluxo completo do atualizador. A confirmação da abertura do jogo não confirma funcionamento TLS. Aguardar teste separado de consulta, download, instalação, reabertura e confirmação no console.
+
+## Elliot na versão normal 0.0.11
+
+Abertura do jogo completo splitado confirmada no console com a 0.0.11, sem utilizar o diagnóstico. A falha da preparação observada na 0.0.10 não se repetiu nessa tentativa. Não atribuir o resultado a uma correção específica: o preflight não foi alterado para resolver essa falha. Áudio, salvar/carregar e retorno ao hbmenu do Elliot continuam sem validação específica. A confirmação não informa qual método de atualização foi usado nem valida o fluxo completo do updater.

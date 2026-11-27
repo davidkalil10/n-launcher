@@ -97,3 +97,7 @@ Orbitals abriu no console após a correção de pacote. Não inferir validação
 Menu::begin_startup_check agenda uma consulta por abertura, respeita L → Ajustes e evita duplicar uma consulta manual. Preferência check_updates em menu.cfg, preservada ao escolher a pasta. O worker existente é reutilizado; sucesso sem versão nova, cancelamento e falha automática retornam à biblioteca. Instalação exige confirmação nova. Updates usam update-operation.log para preservar os registros de preparação.
 
 Elliot 0.0.10 encerrou antes do runtime; a imagem main do SD e do PC tem o mesmo hash, e três módulos passam no PC. A causa ainda não foi identificada. Há um NRO separado na branch codex/elliot-fatal-diagnostics e docs/ELLIOT_INVESTIGATION.md descreve o próximo teste. O diagnóstico não foi integrado na release, e a consulta automática não corrige esse crash. Não reiniciar ou reativar kaiHEN automaticamente.
+
+## Confirmação posterior — Elliot 0.0.11
+
+O Elliot abriu no console com a build normal 0.0.11, sem precisar do diagnóstico. Não pedir para trocar uma versão que está funcionando apenas para provocar o crash. Manter a instrumentação separada e recorrer a ela se a falha reaparecer. A causa da falha da 0.0.10 continua indeterminada: não houve correção específica do preflight. Registrar apenas abertura confirmada, sem inferir áudio, saves ou validação do método de atualização usado.

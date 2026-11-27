@@ -10,6 +10,8 @@
 
 - Abertura do Orbitals confirmada após suporte a pacote autocontido marcado como atualização; áudio e saves desse título ainda sem confirmação específica.
 
+- Abertura do Elliot completo splitado confirmada na versão normal 0.0.11; causa do crash anterior ainda indeterminada.
+
 ## Implementado em 0.0.6 — validar no console
 
 - Perfis de memória por título, mantendo Automático como padrão.

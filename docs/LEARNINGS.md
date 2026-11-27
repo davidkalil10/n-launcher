@@ -52,3 +52,7 @@ Atualizar NRO não exige reativar kaiHEN. Renomear dados no mesmo SD evita recó
 ## 2026-11-26 — API de socket e TLS
 
 As chamadas POSIX e o serviço BSD usam espaços diferentes de descritores. Mesmo um socket TCP conectado não pode ser passado diretamente à API IPC SSL. O wrapper do SDK faz a tradução. Sua convenção -1/ENOENT sob DoNotCloseSocket precisa ser tratada como sucesso. Mensagem de rede/data genérica não permite localizar a falha: preservar etapa, host e Result. Conferir o contrato do SDK mesmo ao adaptar código de upstream.
+
+## Elliot: sucesso posterior não identifica a causa do crash
+
+A versão normal 0.0.11 abriu o Elliot após uma falha da 0.0.10, sem diagnóstico ou alteração específica do preflight. Preservar a evidência anterior e registrar sucesso na tentativa atual, sem concluir causalidade ou correção definitiva. Não exigir teste de diagnóstico quando a operação voltou a funcionar; utilizá-lo se houver recorrência.

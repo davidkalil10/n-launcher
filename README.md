@@ -9,11 +9,11 @@ Nintendo Switch 2 homebrew for preparing and launching NUP backups directly on t
 
 ## Current status
 
-- **Pokopia, split NUP:** graphics, audio, controls, saving and loading have been validated on the console.
-- **Orbitals:** launching has been confirmed after adding support for self-contained packages marked as updates. Audio, saves and return to hbmenu still need separate validation for this title.
-- **The Adventures of Elliot: The Millennium Tales, full game, split NUP:** launching has been confirmed, including recovery from the frontend presentation timeout fixed in this release. Audio, saves and return to hbmenu still need separate validation for this title.
-- **The Legend of Zelda: Ocarina of Time, split NUP:** startup, the opening cutscene and the following loading screen completed with the combined display/synchronization fixes. Video and audio were observed on the console using Split Fiction as the host and Automatic memory settings. Saving and loading still need separate validation.
-- **In-app updates:** automatic startup checks and confirmed installation are available. Version 0.0.16 includes the validated display-timeout handling and bounded lock backoff. Game data, memory profiles and saves are preserved.
+- **Pokopia, split NUP:** graphics, audio, controls, saving and loading validated on the console (no glitches observed on 0.0.16).
+- **Orbitals:** launching, gameplay, saving and loading validated on the console on 0.0.16 (no glitches observed), including support for self-contained packages marked as updates.
+- **The Adventures of Elliot: The Millennium Tales, full game, split NUP:** launching, gameplay, saving and loading validated on the console on 0.0.16 (no glitches observed).
+- **The Legend of Zelda: Ocarina of Time, split NUP:** startup, opening cutscene, loading screens, gameplay, audio, saving and loading validated on the console on 0.0.16 (no glitches observed) using Split Fiction as the host and Automatic memory settings.
+- **In-app updates:** automatic startup checks and in-console installation to 0.0.16 have been validated. Game data, memory profiles and saves are preserved.
 
 N Launcher remains experimental. Compatibility and validation results apply to the individual titles and features tested.
 
@@ -44,7 +44,7 @@ The main NRO includes the loader. No Python installation, compiler or DLLs are n
 
 Self-contained NUPs marked as updates can also be prepared, following the runtime's behavior. An incomplete update still requires its missing files; N Launcher does not supply them.
 
-The preparer supports LZ4 and ZBIC-compressed NSO segments. ZBIC uses the pinned runtime transcoder, followed by Zstandard decoding and the existing segment hash checks. Zelda: Ocarina of Time passed preparation on the PC with a six-part NUP; console execution is still awaiting validation.
+The preparer supports LZ4 and ZBIC-compressed NSO segments. ZBIC uses the pinned runtime transcoder, followed by Zstandard decoding and the existing segment hash checks, validated on the console with Zelda: Ocarina of Time (six-part split NUP).
 
 ## Per-game memory settings
 

@@ -36,6 +36,7 @@ def patch_runtime(out):
     p.write_text(s,encoding='utf-8',newline='\n')
     patch_heapdef_fixed_heaps(out)
     patch_large_bss(out)
+    patch_save_fs_cmd16(out)
     patch_priority_locks(out)
     # Both fallback and normal return paths point to our app, without changing activation.
     for p in (out/'loader/runtime').glob('*.c'):
@@ -197,6 +198,28 @@ def patch_large_bss(out):
         const u64 enough = 4 * host;
 #endif
         if (addr && size > enough && R_SUCCEEDED(svcGetInfo(&base, InfoType_HeapRegionAddress, CUR_PROCESS_HANDLE, 0))) {''')
+
+
+def patch_save_fs_cmd16(out):
+    """Backport upstream nx2-flow 0.2.6 IFileSystem command 16 (GetFileSystemAttribute) support."""
+    p=out/'loader/runtime/rom.c';s=p.read_text(encoding='utf-8')
+    before='// the paths of a request to the save data\'s file system, put in its folder (paths: room for two). 0: a request that isn\'t understood\nstatic int in_folder(u8 *m, u32 cmd, int plain, char (*paths)[0x301]) {\n    u32 count;\n    u8 *x = pointers_of(m, &count);\n    int ok = plain && cmd <= 15 && count <= 2 && (count > 0 || cmd == 10);  // (10: Commit, the only one without a path)'
+    after='''// CMIF input size for a domain request with no buffers, handles, or input objects.
+static u32 inline_request_size(const u8 *m) {
+    const u32 header = rd32(m + 4), bytes = (header & 0x3ff) * 4;
+    if (rd32(m) >> 16 || (header & 0x80003c00u) || bytes < 40 || bytes > 0x100 - 8) return 0;
+    const u32 domain = rd32(m + 0x10), size = domain >> 16;
+    return (domain & 0xffff) == 1 && size >= 16 && size <= bytes - 24 ? size : 0;
+}
+
+// the paths of a request to the save data's file system, put in its folder (paths: room for two). 0: a request that isn't understood
+static int in_folder(u8 *m, u32 cmd, int plain, char (*paths)[0x301]) {
+    u32 count;
+    u8 *x = pointers_of(m, &count);
+    int ok = plain && cmd <= 15 && count <= 2 && (count > 0 || cmd == 10);  // (10: Commit, the only one without a path)
+    if (cmd == 16) ok = plain && inline_request_size(m) == 16;  // GetFileSystemAttribute (HOS 15.0+, 0 paths)'''
+    if s.count(before)!=1:raise RuntimeError('Save FS cmd 16 patch drift: rom.c')
+    p.write_text(s.replace(before,after),encoding='utf-8',newline='\n')
 
 
 def patch_priority_locks(out):

@@ -54,6 +54,148 @@ def patch_runtime(out):
     p.write_text(s,encoding='utf-8',newline='\n')
     # Start with 1536 MiB initial room so titles with >1 GiB static .bss work on Automatic; unused room is returned to the kernel.
     patch('main.c','            u64 room = 1024;','            u64 room = 1536;')
+    # Diagnostic hooks (codex/diag-rdr-mtf):
+    # 1) Opt-in <folder>/fstrace logs nn::fs mount/unmount/GetEntryType/OpenFile paths and nn::ro::LoadModule result.
+    patch('gl2.c',
+'''#ifdef NX2_GAME_MB
+static u32 (*real_get_save_data_size)(s64 *, s64 *, const void *);
+static u32 get_save_data_size_watched(s64 *out_data, s64 *out_journal, const void *uid) {
+    return nx2_get_save_data_size(out_data, out_journal, uid, real_get_save_data_size);
+}
+#endif''',
+'''#ifdef NX2_GAME_MB
+static u32 (*real_get_save_data_size)(s64 *, s64 *, const void *);
+static u32 get_save_data_size_watched(s64 *out_data, s64 *out_journal, const void *uid) {
+    return nx2_get_save_data_size(out_data, out_journal, uid, real_get_save_data_size);
+}
+static char fstrace_rom[32];
+static u32 fstrace_rom_hits;
+static int fstrace_budget = 400;
+static int fstrace_is_rom(const char *path) {
+    if (!path || !fstrace_rom[0]) return 0;
+    u32 k = 0;
+    while (fstrace_rom[k] && path[k] == fstrace_rom[k]) k++;
+    return !fstrace_rom[k] && path[k] == ':';
+}
+static u32 (*real_mount_rom)(const char *, void *, u64);
+static u32 mount_rom_traced(const char *name, void *cache, u64 size) {
+    if (name) {
+        u32 k = 0;
+        for (; k + 1 < sizeof fstrace_rom && name[k]; k++) fstrace_rom[k] = name[k];
+        fstrace_rom[k] = 0;
+    }
+    nx2_log("[fstrace] MountRom(\"%s\", size=%x)\\n", name ? name : "(null)", size);
+    const u32 rc = real_mount_rom(name, cache, size);
+    nx2_log("[fstrace] MountRom(\"%s\") -> %x\\n", name ? name : "(null)", (u64)rc);
+    return rc;
+}
+static u32 (*real_mount_save)(const char *, const void *);
+static u32 mount_save_traced(const char *name, const void *uid) {
+    nx2_log("[fstrace] MountSaveData(\"%s\")\\n", name ? name : "(null)");
+    const u32 rc = real_mount_save(name, uid);
+    nx2_log("[fstrace] MountSaveData(\"%s\") -> %x\\n", name ? name : "(null)", (u64)rc);
+    return rc;
+}
+static void (*real_unmount)(const char *);
+static void unmount_traced(const char *name) {
+    nx2_log("[fstrace] Unmount(\"%s\")\\n", name ? name : "(null)");
+    real_unmount(name);
+}
+static u32 (*real_get_entry_type)(void *, const char *);
+static u32 get_entry_type_traced(void *out, const char *path) {
+    const int is_rom = fstrace_is_rom(path);
+    const int say = (!is_rom || __atomic_fetch_add(&fstrace_rom_hits, 1, __ATOMIC_RELAXED) < 5) &&
+                    __atomic_fetch_sub(&fstrace_budget, 1, __ATOMIC_RELAXED) > 0;
+    if (say) nx2_log("[fstrace] GetEntryType(\"%s\")\\n", path ? path : "(null)");
+    const u32 rc = real_get_entry_type(out, path);
+    if (say || (rc && rc != 0x202)) nx2_log("[fstrace] GetEntryType(\"%s\") -> %x\\n", path ? path : "(null)", (u64)rc);
+    return rc;
+}
+static u32 (*real_open_file)(void *, const char *, int);
+static u32 open_file_traced(void *out, const char *path, int mode) {
+    const int is_rom = fstrace_is_rom(path);
+    const int say = !is_rom && __atomic_fetch_sub(&fstrace_budget, 1, __ATOMIC_RELAXED) > 0;
+    if (say) nx2_log("[fstrace] OpenFile(\"%s\", mode=%x)\\n", path ? path : "(null)", (u64)(u32)mode);
+    const u32 rc = real_open_file(out, path, mode);
+    if (say) nx2_log("[fstrace] OpenFile(\"%s\") -> %x\\n", path ? path : "(null)", (u64)rc);
+    return rc;
+}
+static u32 (*real_ro_load_module)(void *, const void *, void *, u64, int);
+static u32 ro_load_module_traced(void *mod, const void *img, void *buf, u64 size, int flag) {
+    nx2_log("[fstrace] ro::LoadModule(img=%p, buf=%p, size=%x, flag=%x)\\n", (u64)img, (u64)buf, size, (u64)(u32)flag);
+    const u32 rc = real_ro_load_module(mod, img, buf, size, flag);
+    nx2_log("[fstrace] ro::LoadModule -> %x\\n", (u64)rc);
+    return rc;
+}
+#endif''')
+    patch('gl2.c',
+'''        if (!strcmp(name, "_ZN2nn2fs15GetSaveDataSizeEPlS1_RKNS_7account3UidE")) {
+            real_get_save_data_size = (u32 (*)(s64 *, s64 *, const void *))nx2_symbol(name);
+            if (real_get_save_data_size) return get_save_data_size_watched;
+        }''',
+'''        if (!strcmp(name, "_ZN2nn2fs15GetSaveDataSizeEPlS1_RKNS_7account3UidE")) {
+            real_get_save_data_size = (u32 (*)(s64 *, s64 *, const void *))nx2_symbol(name);
+            if (real_get_save_data_size) return get_save_data_size_watched;
+        }
+        static int fstrace = -1;
+        if (fstrace < 0) {
+            FILE *f = fopen(NX2_F("fstrace"), "rb");
+            fstrace = f != NULL;
+            if (f) fclose(f);
+            if (fstrace) nx2_log("[fstrace] <folder>/fstrace is there: logging nn::fs mounts/paths and nn::ro::LoadModule\\n");
+        }
+        if (fstrace) {
+            if (!strcmp(name, "_ZN2nn2fs8MountRomEPKcPvm")) {
+                real_mount_rom = (u32 (*)(const char *, void *, u64))nx2_symbol(name);
+                if (real_mount_rom) return mount_rom_traced;
+            }
+            if (!strcmp(name, "_ZN2nn2fs13MountSaveDataEPKcRKNS_7account3UidE")) {
+                real_mount_save = (u32 (*)(const char *, const void *))nx2_symbol(name);
+                if (real_mount_save) return mount_save_traced;
+            }
+            if (!strcmp(name, "_ZN2nn2fs7UnmountEPKc")) {
+                real_unmount = (void (*)(const char *))nx2_symbol(name);
+                if (real_unmount) return unmount_traced;
+            }
+            if (!strcmp(name, "_ZN2nn2fs12GetEntryTypeEPNS0_18DirectoryEntryTypeEPKc")) {
+                real_get_entry_type = (u32 (*)(void *, const char *))nx2_symbol(name);
+                if (real_get_entry_type) return get_entry_type_traced;
+            }
+            if (!strcmp(name, "_ZN2nn2fs8OpenFileEPNS0_10FileHandleEPKci")) {
+                real_open_file = (u32 (*)(void *, const char *, int))nx2_symbol(name);
+                if (real_open_file) return open_file_traced;
+            }
+            if (!strcmp(name, "_ZN2nn2ro10LoadModuleEPNS0_6ModuleEPKvPvmi")) {
+                real_ro_load_module = (u32 (*)(void *, const void *, void *, u64, int))nx2_symbol(name);
+                if (real_ro_load_module) return ro_load_module_traced;
+            }
+        }''')
+    # 2) On unresolved PLT symbol, log exact caller site, manual_lookup status, and caller frames before aborting.
+    patch('loader.c',
+'''        } else {
+            nx2_log("[load] the game called %s, which no module defines" "\\n", plt[i].name);
+            nx2_crash("the game called a function that none of its modules has (the log's last \\"[load]\\" line names it)");
+            nx2_exit();
+        }''',
+'''        } else {
+            const char *cm = "?";
+            u64 co = from;
+            nx2_where(from, &cm, &co);
+            nx2_log("[load] the game called %s from %s+%x (manual_lookup=%p), which no module defines" "\\n", plt[i].name, cm, co - 4, (u64)manual_lookup);
+            const u64 *frame = __builtin_frame_address(0);
+            frame = frame ? (const u64 *)frame[0] : NULL;
+            for (int k = 0; k < 8 && frame && !((u64)frame & 7) && (u64)frame > 0x10000; k++) {
+                const char *m = "?";
+                u64 o = frame[1] & ((1ull << 39) - 1);
+                nx2_where(o, &m, &o);
+                nx2_log("[load]   caller %d: %s+%x" "\\n", (u64)k, m, o - 4);
+                const u64 *up = (const u64 *)frame[0];
+                if (up <= frame || (u64)up - (u64)frame > 0x100000) break;
+                frame = up;
+            }
+            nx2_crash("the game called a function that none of its modules has (the log's last \\"[load]\\" line names it)");
+            nx2_exit();
+        }''')
     # Both fallback and normal return paths point to our app, without changing activation.
     for p in (out/'loader/runtime').glob('*.c'):
         s=p.read_text(encoding='utf-8');s=s.replace('sdmc:/switch/nx2-flow/nx2-flow.nro','sdmc:/switch/n-launcher/n-launcher.nro').replace('sdmc:/nx2-flow/next.txt','sdmc:/switch/n-launcher/next.txt')

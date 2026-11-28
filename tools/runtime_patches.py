@@ -84,21 +84,21 @@ static u32 mount_rom_traced(const char *name, void *cache, u64 size) {
         for (; k + 1 < sizeof fstrace_rom && name[k]; k++) fstrace_rom[k] = name[k];
         fstrace_rom[k] = 0;
     }
-    nx2_log("[fstrace] MountRom(\"%s\", size=%x)\\n", name ? name : "(null)", size);
+    nx2_log("[fstrace] MountRom('%s', size=%x)\\n", name ? name : "(null)", size);
     const u32 rc = real_mount_rom(name, cache, size);
-    nx2_log("[fstrace] MountRom(\"%s\") -> %x\\n", name ? name : "(null)", (u64)rc);
+    nx2_log("[fstrace] MountRom('%s') -> %x\\n", name ? name : "(null)", (u64)rc);
     return rc;
 }
 static u32 (*real_mount_save)(const char *, const void *);
 static u32 mount_save_traced(const char *name, const void *uid) {
-    nx2_log("[fstrace] MountSaveData(\"%s\")\\n", name ? name : "(null)");
+    nx2_log("[fstrace] MountSaveData('%s')\\n", name ? name : "(null)");
     const u32 rc = real_mount_save(name, uid);
-    nx2_log("[fstrace] MountSaveData(\"%s\") -> %x\\n", name ? name : "(null)", (u64)rc);
+    nx2_log("[fstrace] MountSaveData('%s') -> %x\\n", name ? name : "(null)", (u64)rc);
     return rc;
 }
 static void (*real_unmount)(const char *);
 static void unmount_traced(const char *name) {
-    nx2_log("[fstrace] Unmount(\"%s\")\\n", name ? name : "(null)");
+    nx2_log("[fstrace] Unmount('%s')\\n", name ? name : "(null)");
     real_unmount(name);
 }
 static u32 (*real_get_entry_type)(void *, const char *);
@@ -106,18 +106,18 @@ static u32 get_entry_type_traced(void *out, const char *path) {
     const int is_rom = fstrace_is_rom(path);
     const int say = (!is_rom || __atomic_fetch_add(&fstrace_rom_hits, 1, __ATOMIC_RELAXED) < 5) &&
                     __atomic_fetch_sub(&fstrace_budget, 1, __ATOMIC_RELAXED) > 0;
-    if (say) nx2_log("[fstrace] GetEntryType(\"%s\")\\n", path ? path : "(null)");
+    if (say) nx2_log("[fstrace] GetEntryType('%s')\\n", path ? path : "(null)");
     const u32 rc = real_get_entry_type(out, path);
-    if (say || (rc && rc != 0x202)) nx2_log("[fstrace] GetEntryType(\"%s\") -> %x\\n", path ? path : "(null)", (u64)rc);
+    if (say || (rc && rc != 0x202)) nx2_log("[fstrace] GetEntryType('%s') -> %x\\n", path ? path : "(null)", (u64)rc);
     return rc;
 }
 static u32 (*real_open_file)(void *, const char *, int);
 static u32 open_file_traced(void *out, const char *path, int mode) {
     const int is_rom = fstrace_is_rom(path);
     const int say = !is_rom && __atomic_fetch_sub(&fstrace_budget, 1, __ATOMIC_RELAXED) > 0;
-    if (say) nx2_log("[fstrace] OpenFile(\"%s\", mode=%x)\\n", path ? path : "(null)", (u64)(u32)mode);
+    if (say) nx2_log("[fstrace] OpenFile('%s', mode=%x)\\n", path ? path : "(null)", (u64)(u32)mode);
     const u32 rc = real_open_file(out, path, mode);
-    if (say) nx2_log("[fstrace] OpenFile(\"%s\") -> %x\\n", path ? path : "(null)", (u64)rc);
+    if (say) nx2_log("[fstrace] OpenFile('%s') -> %x\\n", path ? path : "(null)", (u64)rc);
     return rc;
 }
 static u32 (*real_ro_load_module)(void *, const void *, void *, u64, int);

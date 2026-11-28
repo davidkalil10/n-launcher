@@ -54,8 +54,10 @@ def patch_runtime(out):
     p.write_text(s,encoding='utf-8',newline='\n')
     # Start with 1536 MiB initial room so titles with >1 GiB static .bss work on Automatic; unused room is returned to the kernel.
     patch('main.c','            u64 room = 1024;','            u64 room = 1536;')
-    # Diagnostic hooks (codex/diag-rdr-mtf):
-    # 1) Opt-in <folder>/fstrace logs nn::fs mount/unmount/GetEntryType/OpenFile paths and nn::ro::LoadModule result.
+    # Fix for Red Dead Redemption (0x35f202 ResultMountNameNotFound):
+    # RDR calls nn::fs::GetEntryType("save:/\\gabindings.xml") immediately after Unmount("save") when OpenFile returns 0x202.
+    # Track the active save mount and temporarily remount around GetEntryType if the game queries the unmounted save prefix.
+    # Also keeps opt-in <folder>/fstrace diagnostics for nn::fs and nn::ro::LoadModule.
     patch('gl2.c',
 '''#ifdef NX2_GAME_MB
 static u32 (*real_get_save_data_size)(s64 *, s64 *, const void *);
@@ -68,14 +70,21 @@ static u32 (*real_get_save_data_size)(s64 *, s64 *, const void *);
 static u32 get_save_data_size_watched(s64 *out_data, s64 *out_journal, const void *uid) {
     return nx2_get_save_data_size(out_data, out_journal, uid, real_get_save_data_size);
 }
+static int fstrace_on;
 static char fstrace_rom[32];
 static u32 fstrace_rom_hits;
 static int fstrace_budget = 400;
-static int fstrace_is_rom(const char *path) {
-    if (!path || !fstrace_rom[0]) return 0;
+static char nl_save_mount[32];
+static u8 nl_save_uid[16];
+static int nl_save_mounted;
+static u32 nl_save_lock;
+static void nl_lock(u32 *lk) { while (__atomic_exchange_n(lk, 1, __ATOMIC_ACQUIRE)) svcSleepThread(10000); }
+static void nl_unlock(u32 *lk) { __atomic_store_n(lk, 0, __ATOMIC_RELEASE); }
+static int nl_has_prefix(const char *path, const char *mount) {
+    if (!path || !mount || !mount[0]) return 0;
     u32 k = 0;
-    while (fstrace_rom[k] && path[k] == fstrace_rom[k]) k++;
-    return !fstrace_rom[k] && path[k] == ':';
+    while (mount[k] && path[k] == mount[k]) k++;
+    return !mount[k] && path[k] == ':';
 }
 static u32 (*real_mount_rom)(const char *, void *, u64);
 static u32 mount_rom_traced(const char *name, void *cache, u64 size) {
@@ -84,37 +93,67 @@ static u32 mount_rom_traced(const char *name, void *cache, u64 size) {
         for (; k + 1 < sizeof fstrace_rom && name[k]; k++) fstrace_rom[k] = name[k];
         fstrace_rom[k] = 0;
     }
-    nx2_log("[fstrace] MountRom('%s', size=%x)\\n", name ? name : "(null)", size);
+    if (fstrace_on) nx2_log("[fstrace] MountRom('%s', size=%x)\\n", name ? name : "(null)", size);
     const u32 rc = real_mount_rom(name, cache, size);
-    nx2_log("[fstrace] MountRom('%s') -> %x\\n", name ? name : "(null)", (u64)rc);
+    if (fstrace_on) nx2_log("[fstrace] MountRom('%s') -> %x\\n", name ? name : "(null)", (u64)rc);
     return rc;
 }
 static u32 (*real_mount_save)(const char *, const void *);
-static u32 mount_save_traced(const char *name, const void *uid) {
-    nx2_log("[fstrace] MountSaveData('%s')\\n", name ? name : "(null)");
+static u32 mount_save_watched(const char *name, const void *uid) {
+    if (fstrace_on) nx2_log("[fstrace] MountSaveData('%s')\\n", name ? name : "(null)");
     const u32 rc = real_mount_save(name, uid);
-    nx2_log("[fstrace] MountSaveData('%s') -> %x\\n", name ? name : "(null)", (u64)rc);
+    if (rc == 0 && name && uid) {
+        nl_lock(&nl_save_lock);
+        u32 k = 0;
+        for (; k + 1 < sizeof nl_save_mount && name[k]; k++) nl_save_mount[k] = name[k];
+        nl_save_mount[k] = 0;
+        for (u32 b = 0; b < 16; b++) nl_save_uid[b] = ((const u8 *)uid)[b];
+        nl_save_mounted = 1;
+        nl_unlock(&nl_save_lock);
+    }
+    if (fstrace_on) nx2_log("[fstrace] MountSaveData('%s') -> %x\\n", name ? name : "(null)", (u64)rc);
     return rc;
 }
 static void (*real_unmount)(const char *);
-static void unmount_traced(const char *name) {
-    nx2_log("[fstrace] Unmount('%s')\\n", name ? name : "(null)");
+static void unmount_watched(const char *name) {
+    if (fstrace_on) nx2_log("[fstrace] Unmount('%s')\\n", name ? name : "(null)");
+    if (name) {
+        nl_lock(&nl_save_lock);
+        if (nl_save_mounted && !strcmp(name, nl_save_mount)) nl_save_mounted = 0;
+        nl_unlock(&nl_save_lock);
+    }
     real_unmount(name);
 }
 static u32 (*real_get_entry_type)(void *, const char *);
-static u32 get_entry_type_traced(void *out, const char *path) {
-    const int is_rom = fstrace_is_rom(path);
-    const int say = (!is_rom || __atomic_fetch_add(&fstrace_rom_hits, 1, __ATOMIC_RELAXED) < 5) &&
+static u32 get_entry_type_watched(void *out, const char *path) {
+    const int is_rom = nl_has_prefix(path, fstrace_rom);
+    const int say = fstrace_on && (!is_rom || __atomic_fetch_add(&fstrace_rom_hits, 1, __ATOMIC_RELAXED) < 5) &&
                     __atomic_fetch_sub(&fstrace_budget, 1, __ATOMIC_RELAXED) > 0;
     if (say) nx2_log("[fstrace] GetEntryType('%s')\\n", path ? path : "(null)");
+    if (real_mount_save && real_unmount && nl_has_prefix(path, nl_save_mount)) {
+        nl_lock(&nl_save_lock);
+        const int need_remount = !nl_save_mounted && nl_save_mount[0] != 0;
+        if (need_remount) {
+            static u32 remount_logged;
+            if (remount_logged++ < 8)
+                nx2_log("[save] GetEntryType('%s') called while '%s' is unmounted: remounting temporarily\\n", path, nl_save_mount);
+            const u32 mrc = real_mount_save(nl_save_mount, nl_save_uid);
+            const u32 rc = real_get_entry_type(out, path);
+            if (mrc == 0) real_unmount(nl_save_mount);
+            nl_unlock(&nl_save_lock);
+            if (say) nx2_log("[fstrace] GetEntryType('%s') [remounted] -> %x\\n", path, (u64)rc);
+            return rc;
+        }
+        nl_unlock(&nl_save_lock);
+    }
     const u32 rc = real_get_entry_type(out, path);
-    if (say || (rc && rc != 0x202)) nx2_log("[fstrace] GetEntryType('%s') -> %x\\n", path ? path : "(null)", (u64)rc);
+    if (say) nx2_log("[fstrace] GetEntryType('%s') -> %x\\n", path ? path : "(null)", (u64)rc);
     return rc;
 }
 static u32 (*real_open_file)(void *, const char *, int);
 static u32 open_file_traced(void *out, const char *path, int mode) {
-    const int is_rom = fstrace_is_rom(path);
-    const int say = !is_rom && __atomic_fetch_sub(&fstrace_budget, 1, __ATOMIC_RELAXED) > 0;
+    const int is_rom = nl_has_prefix(path, fstrace_rom);
+    const int say = fstrace_on && !is_rom && __atomic_fetch_sub(&fstrace_budget, 1, __ATOMIC_RELAXED) > 0;
     if (say) nx2_log("[fstrace] OpenFile('%s', mode=%x)\\n", path ? path : "(null)", (u64)(u32)mode);
     const u32 rc = real_open_file(out, path, mode);
     if (say) nx2_log("[fstrace] OpenFile('%s') -> %x\\n", path ? path : "(null)", (u64)rc);
@@ -122,9 +161,9 @@ static u32 open_file_traced(void *out, const char *path, int mode) {
 }
 static u32 (*real_ro_load_module)(void *, const void *, void *, u64, int);
 static u32 ro_load_module_traced(void *mod, const void *img, void *buf, u64 size, int flag) {
-    nx2_log("[fstrace] ro::LoadModule(img=%p, buf=%p, size=%x, flag=%x)\\n", (u64)img, (u64)buf, size, (u64)(u32)flag);
+    if (fstrace_on) nx2_log("[fstrace] ro::LoadModule(img=%p, buf=%p, size=%x, flag=%x)\\n", (u64)img, (u64)buf, size, (u64)(u32)flag);
     const u32 rc = real_ro_load_module(mod, img, buf, size, flag);
-    nx2_log("[fstrace] ro::LoadModule -> %x\\n", (u64)rc);
+    if (fstrace_on) nx2_log("[fstrace] ro::LoadModule -> %x\\n", (u64)rc);
     return rc;
 }
 #endif''')
@@ -142,24 +181,25 @@ static u32 ro_load_module_traced(void *mod, const void *img, void *buf, u64 size
             FILE *f = fopen(NX2_F("fstrace"), "rb");
             fstrace = f != NULL;
             if (f) fclose(f);
+            fstrace_on = fstrace;
             if (fstrace) nx2_log("[fstrace] <folder>/fstrace is there: logging nn::fs mounts/paths and nn::ro::LoadModule\\n");
+        }
+        if (!strcmp(name, "_ZN2nn2fs13MountSaveDataEPKcRKNS_7account3UidE")) {
+            real_mount_save = (u32 (*)(const char *, const void *))nx2_symbol(name);
+            if (real_mount_save) return mount_save_watched;
+        }
+        if (!strcmp(name, "_ZN2nn2fs7UnmountEPKc")) {
+            real_unmount = (void (*)(const char *))nx2_symbol(name);
+            if (real_unmount) return unmount_watched;
+        }
+        if (!strcmp(name, "_ZN2nn2fs12GetEntryTypeEPNS0_18DirectoryEntryTypeEPKc")) {
+            real_get_entry_type = (u32 (*)(void *, const char *))nx2_symbol(name);
+            if (real_get_entry_type) return get_entry_type_watched;
         }
         if (fstrace) {
             if (!strcmp(name, "_ZN2nn2fs8MountRomEPKcPvm")) {
                 real_mount_rom = (u32 (*)(const char *, void *, u64))nx2_symbol(name);
                 if (real_mount_rom) return mount_rom_traced;
-            }
-            if (!strcmp(name, "_ZN2nn2fs13MountSaveDataEPKcRKNS_7account3UidE")) {
-                real_mount_save = (u32 (*)(const char *, const void *))nx2_symbol(name);
-                if (real_mount_save) return mount_save_traced;
-            }
-            if (!strcmp(name, "_ZN2nn2fs7UnmountEPKc")) {
-                real_unmount = (void (*)(const char *))nx2_symbol(name);
-                if (real_unmount) return unmount_traced;
-            }
-            if (!strcmp(name, "_ZN2nn2fs12GetEntryTypeEPNS0_18DirectoryEntryTypeEPKc")) {
-                real_get_entry_type = (u32 (*)(void *, const char *))nx2_symbol(name);
-                if (real_get_entry_type) return get_entry_type_traced;
             }
             if (!strcmp(name, "_ZN2nn2fs8OpenFileEPNS0_10FileHandleEPKci")) {
                 real_open_file = (u32 (*)(void *, const char *, int))nx2_symbol(name);
@@ -170,7 +210,7 @@ static u32 ro_load_module_traced(void *mod, const void *img, void *buf, u64 size
                 if (real_ro_load_module) return ro_load_module_traced;
             }
         }''')
-    # 2) On unresolved PLT symbol, log exact caller site, manual_lookup status, and caller frames before aborting.
+    # Log exact caller site and manual_lookup pointer on unresolved PLT symbol (without unsafe frame walk on PLT stack).
     patch('loader.c',
 '''        } else {
             nx2_log("[load] the game called %s, which no module defines" "\\n", plt[i].name);
@@ -182,17 +222,6 @@ static u32 ro_load_module_traced(void *mod, const void *img, void *buf, u64 size
             u64 co = from;
             nx2_where(from, &cm, &co);
             nx2_log("[load] the game called %s from %s+%x (manual_lookup=%p), which no module defines" "\\n", plt[i].name, cm, co - 4, (u64)manual_lookup);
-            const u64 *frame = __builtin_frame_address(0);
-            frame = frame ? (const u64 *)frame[0] : NULL;
-            for (int k = 0; k < 8 && frame && !((u64)frame & 7) && (u64)frame > 0x10000; k++) {
-                const char *m = "?";
-                u64 o = frame[1] & ((1ull << 39) - 1);
-                nx2_where(o, &m, &o);
-                nx2_log("[load]   caller %d: %s+%x" "\\n", (u64)k, m, o - 4);
-                const u64 *up = (const u64 *)frame[0];
-                if (up <= frame || (u64)up - (u64)frame > 0x100000) break;
-                frame = up;
-            }
             nx2_crash("the game called a function that none of its modules has (the log's last \\"[load]\\" line names it)");
             nx2_exit();
         }''')

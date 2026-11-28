@@ -9,7 +9,7 @@ Nintendo Switch 2 homebrew for preparing and launching NUP backups directly on t
 
 ## Current status
 
-- **In-app updates:** automatic startup checks and in-console installation through `0.0.17` have been validated. Game data, memory profiles and saves are preserved.
+- **In-app updates:** automatic startup checks and in-console installation through `0.0.21` have been validated. Game data, memory profiles and saves are preserved.
 - **Experimental status:** N Launcher remains experimental. Compatibility and validation results apply to the individual titles, host titles and features tested.
 
 ## Confirmed compatibility
@@ -23,7 +23,9 @@ Nintendo Switch 2 homebrew for preparing and launching NUP backups directly on t
 | **Donkey Kong Bananza** | Split NUP | Working | 0.0.17 | Validated on console after 0-byte NUP entry fix. |
 | **Fast Fusion** | NUP | Working | 0.0.17 | Validated on console. |
 | **Super Mario Bros. Wonder** | NUP | Working | 0.0.17 | Validated on console. |
-| **Mario Kart World** | Split NUP | Host-limited | 0.0.17 | Initializes CPU, audio, shaders and NVN buffers, but requires a host title with at least **192 MB Remote Memory** and **64 MB System Resource** (aborts on 48–64 MB hosts). |
+| **Mario Kart World** | Split NUP | Not working yet (host-limited) | 0.0.17 | Initializes CPU, audio, shaders and NVN buffers, but requires a host title with at least **192 MB Remote Memory** and **64 MB System Resource** (aborts on 48–64 MB hosts). |
+| **Red Dead Redemption (Nintendo Switch 2 Edition)** | Split NUP | Not working yet | 0.0.21 | Boots past language selection and writes initial save files, then aborts inside the SDK with `0x35f202` (`nn::fs::ResultNotMounted`). |
+| **Mario Tennis Fever** | Split NUP | Not working yet | 0.0.21 | Loads RomFS and its dynamic `.nro` module via `ldr:ro`, then terminates on an undefined `_Z6Abort_v` call during startup. |
 
 ## Installation and updates
 

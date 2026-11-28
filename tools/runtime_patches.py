@@ -126,28 +126,47 @@ static void unmount_watched(const char *name) {
 }
 static u32 (*real_get_entry_type)(void *, const char *);
 static u32 get_entry_type_watched(void *out, const char *path) {
-    const int is_rom = nl_has_prefix(path, fstrace_rom);
+    char clean[512];
+    const char *use = path;
+    if (path) {
+        int has_bs = 0;
+        for (u32 k = 0; path[k]; k++)
+            if (path[k] == '\\\\') { has_bs = 1; break; }
+        if (has_bs) {
+            u32 n = 0;
+            for (u32 k = 0; path[k] && n + 1 < sizeof clean; k++) {
+                char c = path[k] == '\\\\' ? '/' : path[k];
+                if (c == '/' && n > 0 && clean[n - 1] == '/') continue;
+                clean[n++] = c;
+            }
+            clean[n] = 0;
+            use = clean;
+            static u32 bs_logged;
+            if (bs_logged++ < 8) nx2_log("[save] GetEntryType sanitized '%s' -> '%s'\\n", path, clean);
+        }
+    }
+    const int is_rom = nl_has_prefix(use, fstrace_rom);
     const int say = fstrace_on && (!is_rom || __atomic_fetch_add(&fstrace_rom_hits, 1, __ATOMIC_RELAXED) < 5) &&
                     __atomic_fetch_sub(&fstrace_budget, 1, __ATOMIC_RELAXED) > 0;
-    if (say) nx2_log("[fstrace] GetEntryType('%s')\\n", path ? path : "(null)");
-    if (real_mount_save && real_unmount && nl_has_prefix(path, nl_save_mount)) {
+    if (say) nx2_log("[fstrace] GetEntryType('%s')\\n", use ? use : "(null)");
+    if (real_mount_save && real_unmount && nl_has_prefix(use, nl_save_mount)) {
         nl_lock(&nl_save_lock);
         const int need_remount = !nl_save_mounted && nl_save_mount[0] != 0;
         if (need_remount) {
             static u32 remount_logged;
             if (remount_logged++ < 8)
-                nx2_log("[save] GetEntryType('%s') called while '%s' is unmounted: remounting temporarily\\n", path, nl_save_mount);
+                nx2_log("[save] GetEntryType('%s') called while '%s' is unmounted: remounting temporarily\\n", use, nl_save_mount);
             const u32 mrc = real_mount_save(nl_save_mount, nl_save_uid);
-            const u32 rc = real_get_entry_type(out, path);
+            const u32 rc = real_get_entry_type(out, use);
             if (mrc == 0) real_unmount(nl_save_mount);
             nl_unlock(&nl_save_lock);
-            if (say) nx2_log("[fstrace] GetEntryType('%s') [remounted] -> %x\\n", path, (u64)rc);
+            if (say) nx2_log("[fstrace] GetEntryType('%s') [remounted] -> %x\\n", use, (u64)rc);
             return rc;
         }
         nl_unlock(&nl_save_lock);
     }
-    const u32 rc = real_get_entry_type(out, path);
-    if (say) nx2_log("[fstrace] GetEntryType('%s') -> %x\\n", path ? path : "(null)", (u64)rc);
+    const u32 rc = real_get_entry_type(out, use);
+    if (say) nx2_log("[fstrace] GetEntryType('%s') -> %x\\n", use ? use : "(null)", (u64)rc);
     return rc;
 }
 static u32 (*real_open_file)(void *, const char *, int);
